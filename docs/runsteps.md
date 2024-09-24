@@ -21,7 +21,10 @@ For use with the [shark pipeline](https://github.com/quantifyearth/shark), we ne
  (run (shell "python3 -m pip config set global.break-system-packages true"))
  (run (network host) (shell "pip install 'numpy<2'"))
  (run (network host) (shell "pip install gdal[numpy]==3.9.2"))
- (copy (src "./") (dst "/root/"))
+ (copy (src "./aoh-calculator") (dst "/root/"))
+ (copy (src "./prepare-layers") (dst "/root/"))
+ (copy (src "./prepare-species") (dst "/root/"))
+ (copy (src "./requirements.txt") (dst "/root/"))
  (workdir "/root/")
  (run (network host) (shell "pip install --no-cache-dir -r requirements.txt"))
 )
@@ -72,10 +75,10 @@ The habitat map by Lumbierres et al is at 100m resolution in World Berhman proje
 
 
 ```shark-run:aohbuilder
-python3 ./habitat_process.py --habitat /data/habitat/raw.tif \
-                             --scale 1000.0 \
-                             --projection "ESRI:54009" \
-                             --output /data/habitat_layers/
+python3 ./aoh-calculator/habitat_process.py --habitat /data/habitat/raw.tif \
+                                            --scale 1000.0 \
+                                            --projection "ESRI:54009" \
+                                            --output /data/habitat_layers/
 ```
 
 
@@ -116,9 +119,9 @@ Once all the data has been collected, we can now calclate the AoH maps.
 Rather than calculate from a single main input source of IUCN data (which no matter what method is used - download from the website, API queries, etc. - tends to result in a single blob), we first split out the data into a single GeoJSON file per species per season:
 
 ```shark-run:aohbuilder
-python3 ./STAR/extract_data_per_species.py --speciesdata /data/test_species_hab_elev.geojson \
-                                           --projection "ESRI:54009" \
-                                           --output /data/species-info/
+python3 ./prepare-species/extract_data_per_species.py --speciesdata /data/test_species_hab_elev.geojson \
+                                                      --projection "ESRI:54009" \
+                                                      --output /data/species-info/
 ```
 
 The reason for doing this primarly one of pipeline optimisation, though it also makes the tasks of debugging and provenance tracing much easier. Most build systems, including the one we use, let you notice when files have updated and only do the work required based on that update. If we have many thousands of species on the redlise and only a few update, if we base our calculation on a single file with all species in, we'll have to calculate all thousands of results. But with this step added in, we will re-generate the per species per season GeoJSON files, which is cheap, but then we can spot that most of them haven't changed and we don't need to then calculate the rasters for those ones in the next stage.
@@ -132,7 +135,7 @@ The reason for doing this primarly one of pipeline optimisation, though it also 
 The provided crosswalk, derived from Figure 2 in [Lumbierres et al 2021](https://conbio.onlinelibrary.wiley.com/doi/10.1111/cobi.13851), needs first converted to a canonical format used by the software that maps IUCN habitat class to code in habitat raster:
 
 ```shark-run:aohbuilder
-python3 ./STAR/convert_crosswalk.py --original /data/crosswalk.csv --output /data/processed-crosswalk.csv
+python3 ./prepare-layers/convert_crosswalk.py --original /data/crosswalk.csv --output /data/processed-crosswalk.csv
 ```
 
 ### Calculate AoH
@@ -141,12 +144,12 @@ python3 ./STAR/convert_crosswalk.py --original /data/crosswalk.csv --output /dat
 This step generates a single AoH raster for a single one of the above GeoJSON files.
 
 ```shark-run:aohbuilder
-python3 ./aohcalc.py --habitats /data/habitat_layers/ \
-                     --elevation-max /data/elevation-max-1k.tif \
-                     --elevation-min /data/elevation-min-1k.tif \
-                     --crosswalk /data/processed-crosswalk.csv \
-                     --speciesdata /data/species-info/* \
-                     --output /data/aohs/
+python3 ./aoh-calculator/aohcalc.py --habitats /data/habitat_layers/ \
+                                    --elevation-max /data/elevation-max-1k.tif \
+                                    --elevation-min /data/elevation-min-1k.tif \
+                                    --crosswalk /data/processed-crosswalk.csv \
+                                    --speciesdata /data/species-info/* \
+                                    --output /data/aohs/
 ```
 
 The results you then want will all be in:
