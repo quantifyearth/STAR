@@ -2,8 +2,8 @@ import math
 
 import pandas as pd
 
-ELEVATION_MIN = -500
-ELEVATION_MAX = 9000
+ELEVATION_MIN = -427
+ELEVATION_MAX = 8580
 
 def tidy_data(row: pd.Series) -> pd.Series:
     """Tidy up the data as per Busana et al"""
@@ -25,8 +25,8 @@ def tidy_data(row: pd.Series) -> pd.Series:
 
     # Small difference (<50m) between lower and upper elevation
     elevation_diff = row.elevation_upper - row.elevation_lower
-    if elevation_diff < 50.0:
-        spare = 50.0 - elevation_diff
+    if elevation_diff < 12.0:
+        spare = 12.0 - elevation_diff
         adjust = math.ceil(spare / 2.0)
         row.elevation_lower -= adjust
         row.elevation_upper += adjust
