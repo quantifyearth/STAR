@@ -19,8 +19,7 @@ if [ -z "${VIRTUAL_ENV}" ]; then
     exit 1
 fi
 
-# declare -a TAXALIST=("AMPHIBIA", "AVES", "MAMMALIA", "REPTILIA")
-declare -a TAXALIST=("AVES")
+declare -a TAXALIST=("AMPHIBIA", "AVES", "MAMMALIA", "REPTILIA")
 
 # Get habitat layer and prepare for use
 reclaimer zenodo --zenodo_id 3939050 --filename PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif --output ${DATADIR}/habitat/raw.tif
@@ -53,7 +52,13 @@ littlejohn -j 200 -o ${DATADIR}/aohbatch.log -c ${DATADIR}/aohbatch.csv ${VIRTUA
 
 # Calculate predictors from AoHs
 python3 ./aoh-calculator/summaries/species_richness.py --aohs_folder ${DATADIR}/aohs/current/ \
-                                                       --output ${DATADIR}/predictors/species_richness.tif
+                                                       --output ${DATADIR}/summaries/species_richness.tif
 python3 ./aoh-calculator/summaries/endemism.py --aohs_folder ${DATADIR}/aohs/current/ \
-                                               --species_richness ${DATADIR}/predictors/species_richness.tif \
-                                               --output ${DATADIR}/predictors/
+                                               --species_richness ${DATADIR}/summaries/species_richness.tif \
+                                               --output ${DATADIR}/summaries/endemism.tif
+
+# Aoh Validation
+python3 ./aoh-calculator/validation/collate_data.py --aohs ${DATADIR}/aohs/current/ \
+                                                    --output ${DATADIR}/validation/aohs.csv
+python3 ./aoh-calculator/validation/validate_map_prevelence.py --collated_aoh_data ${DATADIR}/validation/aohs.csv \
+                                                               --output ${DATADIR}/validation/model_validation.csv
