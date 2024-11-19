@@ -11,7 +11,6 @@ import pyproj
 import psycopg2
 import shapely
 from postgis.psycopg import register
-from shapely.ops import transform
 
 from cleaning import tidy_data
 
