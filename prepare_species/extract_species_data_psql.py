@@ -185,7 +185,7 @@ def extract_data_per_species(
 
     # For STAR-R we need historic data, but for STAR-T we just need current.
     # for era, presence in [("current", (1, 2)), ("historic", (1, 2, 4, 5))]:
-    for era, presence in [("current", (1, 2, 3))]:
+    for era, presence in [("current", (1, 2))]:
         era_output_directory_path = os.path.join(output_directory_path, era)
 
         cursor.execute(MAIN_STATEMENT, (class_name,))
