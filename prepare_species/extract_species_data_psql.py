@@ -24,6 +24,7 @@ COLUMNS = [
     "elevation_lower",
     "elevation_upper",
     "full_habitat_code",
+    "scientific_name",
     "family_name",
     "class_name",
     "geometry"
@@ -35,6 +36,7 @@ SELECT
     assessments.id as assessment_id,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationLower.limit')::numeric AS elevation_lower,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationUpper.limit')::numeric AS elevation_upper,
+    taxons.scientific_name,
     taxons.family_name
 FROM
     assessments
@@ -108,7 +110,7 @@ def process_row(
     register(connection)
     cursor = connection.cursor()
 
-    id_no, assessment_id, elevation_lower, elevation_upper, family_name = row
+    id_no, assessment_id, elevation_lower, elevation_upper, scientific_name, family_name = row
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
     raw_habitats = cursor.fetchall()
@@ -162,6 +164,7 @@ def process_row(
             int(elevation_lower) if elevation_lower is not None else None,
             int(elevation_upper) if elevation_upper is not None else None,
             '|'.join(list(habitats)),
+            scientific_name,
             family_name,
             class_name,
             geometry
