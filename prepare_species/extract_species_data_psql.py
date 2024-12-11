@@ -1,9 +1,10 @@
 import argparse
+import importlib
 import logging
 import os
 from functools import partial
 from multiprocessing import Pool
-from typing import Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 # import pyshark # pylint: disable=W0611
 import geopandas as gpd
@@ -12,7 +13,7 @@ import psycopg2
 import shapely
 from postgis.psycopg import register
 
-from cleaning import tidy_data
+aoh_cleaning = importlib.import_module("aoh-calculator.cleaning")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -86,17 +87,59 @@ def tidy_reproject_save(
     output_directory_path: str,
     target_projection: Optional[str],
 ) -> None:
-    # The geometry is in CRS 4326, but the AoH work is done in World_Behrmann, aka Projected CRS: ESRI:54017
     src_crs = pyproj.CRS.from_epsg(4326)
     target_crs = pyproj.CRS.from_string(target_projection) if target_projection else src_crs
 
     graw = gdf.loc[0].copy()
-    grow = tidy_data(graw)
+    grow = aoh_cleaning.tidy_data(graw)
     os.makedirs(output_directory_path, exist_ok=True)
     output_path = os.path.join(output_directory_path, f"{grow.id_no}.geojson")
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
     res_projected = res.to_crs(target_crs)
     res_projected.to_file(output_path, driver="GeoJSON")
+
+def process_habitats(habitats_data: List) -> Set:
+    if len(habitats_data) == 0:
+        raise ValueError("No habitats found")
+    if len(habitats_data) > 1:
+        raise ValueError(f"Expected only one habitat row")
+
+    habitats = set()
+    for habitat_values_row in habitats_data:
+        assert len(habitat_values_row) == 1
+        habitat_values = habitat_values_row[0]
+
+        if habitat_values is None:
+            continue
+        habitat_set = set([x for x in habitat_values.split('|') if x])
+        habitats |= habitat_set
+
+    if len(habitats) == 0:
+        raise ValueError("No filtered habitats")
+
+    return habitats
+
+def process_geometries(geometries_data: List[Tuple[int,shapely.Geometry]]) -> shapely.Geometry:
+    if len(geometries_data) == 0:
+        raise ValueError("No geometries in DB")
+
+    geometry = None
+    for geometry_row in geometries_data:
+        assert len(geometry_row) == 1
+        row_geometry = geometry_row[0]
+        if row_geometry is None:
+            continue
+
+        grange = shapely.normalize(shapely.from_wkb(row_geometry.to_ewkb()))
+        if geometry is None:
+            geometry = grange
+        else:
+            geometry = shapely.union(geometry, grange)
+
+    if geometry is None:
+        raise ValueError("None geometry data in DB")
+
+    return geometry
 
 def process_row(
     class_name: str,
@@ -114,47 +157,18 @@ def process_row(
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
     raw_habitats = cursor.fetchall()
-
-    if len(raw_habitats) == 0:
-        logger.debug("Dropping %s as no habitats found", id_no)
-        return
-    if len(raw_habitats) > 1:
-        logger.warning("Expected only one habitat row, got %d for %s", len(raw_habitats), id_no)
-
-    habitats = set()
-    for habitat_values_row in raw_habitats:
-        assert len(habitat_values_row) == 1
-        habitat_values = habitat_values_row[0]
-
-        if habitat_values is None:
-            continue
-        habitat_set = set([x for x in habitat_values.split('|')])
-        habitats |= habitat_set
-
-    if len(habitats) == 0:
-        logger.debug("Dropping %s: no habitats in DB", id_no)
+    try:
+        habitats = process_habitats(raw_habitats)
+    except ValueError as exc:
+        logging.info("Dropping %s: %s", id_no, str(exc))
         return
 
     cursor.execute(GEOMETRY_STATEMENT, (assessment_id, presence))
     geometries_data = cursor.fetchall()
-    if len(geometries_data) == 0:
-        logger.info("Dropping %s: no geometries", id_no)
-        return
-    geometry = None
-    for geometry_row in geometries_data:
-        assert len(geometry_row) == 1
-        row_geometry = geometry_row[0]
-        if row_geometry is None:
-            continue
-
-        grange = shapely.normalize(shapely.from_wkb(row_geometry.to_ewkb()))
-        if geometry is None:
-            geometry = grange
-        else:
-            geometry = shapely.union(geometry, grange)
-
-    if geometry is None:
-        logger.debug("Dropping %s: none geometries in DB", id_no)
+    try:
+        geometry = process_geometries(geometries_data)
+    except ValueError as exc:
+        logging.info("Dropping %s: %s", id_no, str(exc))
         return
 
     gdf = gpd.GeoDataFrame(
