@@ -2,7 +2,7 @@ import pytest
 import postgis
 import shapely
 
-from prepare_species.extract_species_data_psql import process_habitats, process_geometries
+from prepare_species.extract_species_data_psql import process_habitats, process_geometries, process_threats
 
 def test_simple_example():
     habitat_data = [("4.1|4.2",)]
@@ -46,3 +46,30 @@ def test_simple_migratory_species_geometry_filter():
     ]
     res = process_geometries(geoemetries_data)
     assert res == shapely.Point(2, 4)
+
+def test_empty_threat_list():
+    threats_data = []
+    res = process_threats(threats_data)
+    assert not res
+
+def test_no_serious_threats():
+    threats_data = [
+        ("Minority (<50%)", "No decline"),
+    ]
+    res = process_threats(threats_data)
+    assert not res
+
+def test_serious_threats():
+    threats_data = [
+        ("Whole (>90%)", "Very rapid declines"),
+    ]
+    res = process_threats(threats_data)
+    assert res
+
+def test_mixed_threats():
+    threats_data = [
+        ("Whole (>90%)", "Very rapid declines"),
+        ("Minority (<50%)", "No decline"),
+    ]
+    res = process_threats(threats_data)
+    assert res

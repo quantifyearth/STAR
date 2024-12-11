@@ -52,6 +52,17 @@ WHERE
     assessments.latest = true
     AND taxons.class_name = %s
     AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
+    AND taxons.family_name NOT IN ('Testudines')
+"""
+
+THREATS_STATEMENT = """
+SELECT
+    supplementary_fields->>'Scope' AS scope,
+    supplementary_fields->>'Severity' AS severity
+FROM
+    assessment_threats
+WHERE
+    assessment_id = %s
 """
 
 HABITATS_STATEMENT = """
@@ -101,6 +112,42 @@ def tidy_reproject_save(
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
     res_projected = res.to_crs(target_crs)
     res_projected.to_file(output_path, driver="GeoJSON")
+
+SCOPES = [
+    "Whole (>90%)",
+    "Majority (50-90%)",
+    "Minority (<50%)"
+]
+DEFAULT_SCOPE = "Majority (50-90%)"
+SEVERITIES = [
+    "Very rapid declines",
+    "Rapid declines",
+    "Slow, Significant Declines",
+    "Negligible declines",
+    "No decline",
+    "Causing/could cause fluctuations"
+]
+DEFAULT_SEVERITY = "Slow, Significant Declines"
+
+# Taken from Muir et al 2021, indexed by SCOPE and then SEVERITY
+THREAT_WEIGHTING_TABLE = [
+    [63, 24, 10, 1, 0, 10],
+    [52, 18,  9, 0, 0,  9],
+    [24,  7,  5, 0, 0,  5],
+]
+
+def process_threats(threat_data: List) -> bool:
+    total = 0
+    for scope, severity in threat_data:
+        if scope is None:
+            scope = DEFAULT_SCOPE
+        if severity is None:
+            severity = DEFAULT_SEVERITY
+        scope_index = SCOPES.index(scope)
+        severity_index = SEVERITIES.index(severity)
+        score = THREAT_WEIGHTING_TABLE[scope_index][severity_index]
+        total += score
+    return total != 0
 
 def process_habitats(habitats_data: List) -> Set:
     if len(habitats_data) == 0:
@@ -159,6 +206,13 @@ def process_row(
 
     id_no, assessment_id, possibly_extinct, possibly_extinct_in_the_wild, \
         elevation_lower, elevation_upper, scientific_name, family_name = row
+
+    cursor.execute(THREATS_STATEMENT, (assessment_id,))
+    raw_threats = cursor.fetchall()
+    threatened = process_threats(raw_threats)
+    if not threatened:
+        logging.info("Dropping %s: no threats", id_no)
+        return
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
     raw_habitats = cursor.fetchall()
