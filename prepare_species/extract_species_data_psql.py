@@ -1,6 +1,7 @@
 import argparse
 import importlib
 import logging
+import math
 import os
 from functools import partial
 from multiprocessing import Pool
@@ -8,6 +9,7 @@ from typing import List, Optional, Set, Tuple
 
 # import pyshark # pylint: disable=W0611
 import geopandas as gpd
+import pandas as pd
 import pyproj
 import psycopg2
 import shapely
@@ -195,8 +197,35 @@ def process_row(
     )
     tidy_reproject_save(gdf, output_directory_path, target_projection)
 
+def apply_overrides(
+    overrides_path: str,
+    results,
+):
+    overrides = pd.read_csv(overrides_path, encoding="latin1")
+
+    updated = []
+    for row in results:
+        updated_row = list(row)
+        id_no = updated_row[0]
+
+        override = overrides[overrides["SIS ID"] == id_no]
+        if len(override) != 0:
+            assert len(override) == 1
+            occasional_lower = override.iloc[0]["Occasional lower elevation"]
+            occasional_upper = override.iloc[0]["Occasional upper elevation"]
+
+            if not math.isnan(occasional_lower):
+                updated_row[4] = occasional_lower
+            if not math.isnan(occasional_upper):
+                updated_row[5] = occasional_upper
+
+        updated.append(tuple(updated_row))
+
+    return updated
+
 def extract_data_per_species(
     class_name: str,
+    overrides_path: str,
     output_directory_path: str,
     target_projection: Optional[str],
 ) -> None:
@@ -216,6 +245,9 @@ def extract_data_per_species(
 
         logger.info("Found %d species in class %s in scenarion %s", len(results), class_name, era)
 
+        if overrides_path:
+            results = apply_overrides(overrides_path, results)
+
         # The limiting amount here is how many concurrent connections the database can take
         with Pool(processes=20) as pool:
             pool.map(partial(process_row, class_name, era_output_directory_path, target_projection, presence), results)
@@ -228,6 +260,13 @@ def main() -> None:
         help="Species class name",
         required=True,
         dest="classname",
+    )
+    parser.add_argument(
+        '--overrides',
+        type=str,
+        help="CSV of overrides",
+        required=False,
+        dest="overrides",
     )
     parser.add_argument(
         '--output',
@@ -248,6 +287,7 @@ def main() -> None:
 
     extract_data_per_species(
         args.classname,
+        args.overrides,
         args.output_directory_path,
         args.target_projection
     )
