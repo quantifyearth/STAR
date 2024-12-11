@@ -35,6 +35,8 @@ MAIN_STATEMENT = """
 SELECT
     assessments.sis_taxon_id as id_no,
     assessments.id as assessment_id,
+    assessments.possibly_extinct,
+    assessments.possibly_extinct_in_the_wild,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationLower.limit')::numeric AS elevation_lower,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationUpper.limit')::numeric AS elevation_upper,
     taxons.scientific_name,
@@ -153,7 +155,8 @@ def process_row(
     register(connection)
     cursor = connection.cursor()
 
-    id_no, assessment_id, elevation_lower, elevation_upper, scientific_name, family_name = row
+    id_no, assessment_id, possibly_extinct, possibly_extinct_in_the_wild, \
+        elevation_lower, elevation_upper, scientific_name, family_name = row
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
     raw_habitats = cursor.fetchall()
@@ -162,6 +165,10 @@ def process_row(
     except ValueError as exc:
         logging.info("Dropping %s: %s", id_no, str(exc))
         return
+
+    # From Chess STAR report
+    if possibly_extinct or possibly_extinct_in_the_wild:
+        presence += (4,)
 
     cursor.execute(GEOMETRY_STATEMENT, (assessment_id, presence))
     geometries_data = cursor.fetchall()
