@@ -102,7 +102,7 @@ def process_habitats(habitats_data: List) -> Set:
     if len(habitats_data) == 0:
         raise ValueError("No habitats found")
     if len(habitats_data) > 1:
-        raise ValueError(f"Expected only one habitat row")
+        raise ValueError("Expected only one habitat row")
 
     habitats = set()
     for habitat_values_row in habitats_data:
@@ -111,7 +111,7 @@ def process_habitats(habitats_data: List) -> Set:
 
         if habitat_values is None:
             continue
-        habitat_set = set([x for x in habitat_values.split('|') if x])
+        habitat_set = {x for x in habitat_values.split('|') if x}
         habitats |= habitat_set
 
     if len(habitats) == 0:

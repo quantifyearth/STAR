@@ -2,7 +2,6 @@
 
 import argparse
 import os
-from typing import List, Set
 
 import pandas as pd
 
@@ -29,7 +28,6 @@ def aoh_generator(
                     os.path.join(os.path.join(data_dir, "masks", "terrestrial_mask.tif")),
                     os.path.join(os.path.join(data_dir, "aohs/"), scenario, taxa)
                 ])
-
 
     df = pd.DataFrame(res, columns=[
         '--habitats',
