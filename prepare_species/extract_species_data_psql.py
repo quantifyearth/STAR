@@ -57,8 +57,8 @@ WHERE
 
 THREATS_STATEMENT = """
 SELECT
-    supplementary_fields->>'Scope' AS scope,
-    supplementary_fields->>'Severity' AS severity
+    supplementary_fields->>'scope' AS scope,
+    supplementary_fields->>'severity' AS severity
 FROM
     assessment_threats
 WHERE
@@ -114,20 +114,20 @@ def tidy_reproject_save(
     res_projected.to_file(output_path, driver="GeoJSON")
 
 SCOPES = [
-    "Whole (>90%)",
-    "Majority (50-90%)",
-    "Minority (<50%)"
+    "whole (>90%)",
+    "majority (50-90%)",
+    "minority (<50%)"
 ]
-DEFAULT_SCOPE = "Majority (50-90%)"
+DEFAULT_SCOPE = "majority (50-90%)"
 SEVERITIES = [
-    "Very rapid declines",
-    "Rapid declines",
-    "Slow, Significant Declines",
-    "Negligible declines",
-    "No decline",
-    "Causing/could cause fluctuations"
+    "very rapid declines",
+    "rapid declines",
+    "slow, significant declines",
+    "negligible declines",
+    "no decline",
+    "causing/could cause fluctuations"
 ]
-DEFAULT_SEVERITY = "Slow, Significant Declines"
+DEFAULT_SEVERITY = "slow, significant declines"
 
 # Taken from Muir et al 2021, indexed by SCOPE and then SEVERITY
 THREAT_WEIGHTING_TABLE = [
@@ -139,12 +139,12 @@ THREAT_WEIGHTING_TABLE = [
 def process_threats(threat_data: List) -> bool:
     total = 0
     for scope, severity in threat_data:
-        if scope is None:
+        if scope is None or scope.lower() == "unknown":
             scope = DEFAULT_SCOPE
-        if severity is None:
+        if severity is None or severity.lower() == "unknown":
             severity = DEFAULT_SEVERITY
-        scope_index = SCOPES.index(scope)
-        severity_index = SEVERITIES.index(severity)
+        scope_index = SCOPES.index(scope.lower())
+        severity_index = SEVERITIES.index(severity.lower())
         score = THREAT_WEIGHTING_TABLE[scope_index][severity_index]
         total += score
     return total != 0
@@ -211,7 +211,7 @@ def process_row(
     raw_threats = cursor.fetchall()
     threatened = process_threats(raw_threats)
     if not threatened:
-        logging.info("Dropping %s: no threats", id_no)
+        logger.info("Dropping %s: no threats", id_no)
         return
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
@@ -219,7 +219,7 @@ def process_row(
     try:
         habitats = process_habitats(raw_habitats)
     except ValueError as exc:
-        logging.info("Dropping %s: %s", id_no, str(exc))
+        logger.info("Dropping %s: %s", id_no, str(exc))
         return
 
     # From Chess STAR report
@@ -231,7 +231,7 @@ def process_row(
     try:
         geometry = process_geometries(geometries_data)
     except ValueError as exc:
-        logging.info("Dropping %s: %s", id_no, str(exc))
+        logger.info("Dropping %s: %s", id_no, str(exc))
         return
 
     gdf = gpd.GeoDataFrame(

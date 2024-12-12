@@ -120,7 +120,8 @@ python3 ./prepare_layers/make_masks.py --habitat_layers /data/habitat_layers/cur
 To assist with provenance, we download the data from the Zenodo ID.
 
 ```shark-run:reclaimer
-reclaimer zenodo --zenodo_id 5719984 --filename dem-100m-esri54017.tif --output /data/elevation.tif
+curl -o FABDEM.zip https://data.bris.ac.uk/datasets/tar/s5hqmjcdj8yo2ibzi9b4ew3sn.zip
+...
 ```
 
 Similarly to the habitat map we need to resample to 1km, however rather than picking the mean elevation, we select both the min and max elevation for each pixel, and then check whether the species is in that range when we calculate AoH.
