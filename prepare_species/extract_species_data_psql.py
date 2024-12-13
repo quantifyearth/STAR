@@ -51,6 +51,7 @@ FROM
 WHERE
     assessments.latest = true
     AND taxons.class_name = %s
+    AND taxons.infra_type is NULL
     AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
     AND taxons.family_name NOT IN ('Testudines')
 """
@@ -63,6 +64,7 @@ FROM
     assessment_threats
 WHERE
     assessment_id = %s
+    AND supplementary_fields->>'severity' <> 'Past, Unlikely to Return'
 """
 
 HABITATS_STATEMENT = """
