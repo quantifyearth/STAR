@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
+# To match the FABDEM elevation map we use
+# different range min/max/seperation
+ELEVATION_MAX = 8580
+ELEVATION_MIN = -427
+ELEVATION_SPREAD = 12
+
 COLUMNS = [
     "id_no",
     "season",
@@ -108,7 +114,12 @@ def tidy_reproject_save(
     target_crs = pyproj.CRS.from_string(target_projection) if target_projection else src_crs
 
     graw = gdf.loc[0].copy()
-    grow = aoh_cleaning.tidy_data(graw)
+    grow = aoh_cleaning.tidy_data(
+        graw,
+        elevation_max=ELEVATION_MAX,
+        elevation_min=ELEVATION_MIN,
+        elevation_spread=ELEVATION_SPREAD,
+    )
     os.makedirs(output_directory_path, exist_ok=True)
     output_path = os.path.join(output_directory_path, f"{grow.id_no}.geojson")
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
