@@ -29,6 +29,7 @@ ELEVATION_SPREAD = 12
 
 COLUMNS = [
     "id_no",
+    "assessment_id",
     "season",
     "elevation_lower",
     "elevation_upper",
@@ -36,6 +37,7 @@ COLUMNS = [
     "scientific_name",
     "family_name",
     "class_name",
+    "category",
     "geometry"
 ]
 
@@ -48,14 +50,17 @@ SELECT
     (assessment_supplementary_infos.supplementary_fields->>'ElevationLower.limit')::numeric AS elevation_lower,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationUpper.limit')::numeric AS elevation_upper,
     taxons.scientific_name,
-    taxons.family_name
+    taxons.family_name,
+    red_list_category_lookup.code
 FROM
     assessments
+    LEFT JOIN assessment_scopes ON assessment_scopes.assessment_id = assessments.id
     LEFT JOIN taxons ON taxons.id = assessments.taxon_id
     LEFT JOIN assessment_supplementary_infos ON assessment_supplementary_infos.assessment_id = assessments.id
     LEFT JOIN red_list_category_lookup ON red_list_category_lookup.id = assessments.red_list_category_id
 WHERE
     assessments.latest = true
+    AND assessment_scopes.scope_lookup_id = 15 -- global assessments only
     AND taxons.class_name = %s
     AND taxons.infra_type is NULL
     AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
@@ -70,7 +75,7 @@ FROM
     assessment_threats
 WHERE
     assessment_id = %s
-    AND supplementary_fields->>'severity' <> 'Past, Unlikely to Return'
+    AND (supplementary_fields->>'timing' is NULL OR supplementary_fields->>'timing' <> 'Past, Unlikely to Return')
 """
 
 HABITATS_STATEMENT = """
@@ -118,7 +123,7 @@ def tidy_reproject_save(
         graw,
         elevation_max=ELEVATION_MAX,
         elevation_min=ELEVATION_MIN,
-        elevation_spread=ELEVATION_SPREAD,
+        elevation_seperation=ELEVATION_SPREAD,
     )
     os.makedirs(output_directory_path, exist_ok=True)
     output_path = os.path.join(output_directory_path, f"{grow.id_no}.geojson")
@@ -211,29 +216,27 @@ def process_row(
     target_projection: Optional[str],
     presence: Tuple[int],
     row: Tuple,
-) -> None:
+) -> Tuple:
 
     connection = psycopg2.connect(DB_CONFIG)
     register(connection)
     cursor = connection.cursor()
 
     id_no, assessment_id, possibly_extinct, possibly_extinct_in_the_wild, \
-        elevation_lower, elevation_upper, scientific_name, family_name = row
+        elevation_lower, elevation_upper, scientific_name, family_name, category = row
 
     cursor.execute(THREATS_STATEMENT, (assessment_id,))
     raw_threats = cursor.fetchall()
     threatened = process_threats(raw_threats)
     if not threatened:
-        logger.info("Dropping %s: no threats", id_no)
-        return
+        return (id_no, 1, 0, 0, 0)
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
     raw_habitats = cursor.fetchall()
     try:
         habitats = process_habitats(raw_habitats)
-    except ValueError as exc:
-        logger.info("Dropping %s: %s", id_no, str(exc))
-        return
+    except ValueError as _exc:
+        return (id_no, 0, 1, 0, 0)
 
     # From Chess STAR report
     if possibly_extinct or possibly_extinct_in_the_wild:
@@ -243,13 +246,13 @@ def process_row(
     geometries_data = cursor.fetchall()
     try:
         geometry = process_geometries(geometries_data)
-    except ValueError as exc:
-        logger.info("Dropping %s: %s", id_no, str(exc))
-        return
+    except ValueError as _exc:
+        return (id_no, 0, 0, 1, 0)
 
     gdf = gpd.GeoDataFrame(
         [[
             id_no,
+            assessment_id,
             "all",
             int(elevation_lower) if elevation_lower is not None else None,
             int(elevation_upper) if elevation_upper is not None else None,
@@ -257,12 +260,14 @@ def process_row(
             scientific_name,
             family_name,
             class_name,
+            category,
             geometry
           ]],
         columns=COLUMNS,
         crs=target_projection or 'epsg:4326'
     )
     tidy_reproject_save(gdf, output_directory_path, target_projection)
+    return (id_no, 0, 0, 0, 1)
 
 def apply_overrides(
     overrides_path: str,
@@ -317,7 +322,15 @@ def extract_data_per_species(
 
         # The limiting amount here is how many concurrent connections the database can take
         with Pool(processes=20) as pool:
-            pool.map(partial(process_row, class_name, era_output_directory_path, target_projection, presence), results)
+            res = pool.map(partial(process_row, class_name, era_output_directory_path, target_projection, presence), results)
+
+        df = pd.DataFrame(res, columns=["id_no", "no threats", "no habitats", "no geometries", "included"])
+        print("Summary:")
+        print(f"\ttotal:{len(df)}")
+        print(f"\tno threats:{df["no threats"].sum()}")
+        print(f"\tno habiatats:{df["no habitats"].sum()}")
+        print(f"\tno geometries:{df["no geometries"].sum()}")
+        print(f"\tremaining:{df["included"].sum()}")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
