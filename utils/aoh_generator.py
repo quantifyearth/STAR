@@ -21,8 +21,8 @@ def aoh_generator(
             for species in speciess:
                 res.append([
                     os.path.join(os.path.join(data_dir, "habitat_layers"), scenario),
-                    os.path.join(data_dir, "elevation-max-1k.tif"),
-                    os.path.join(data_dir, "elevation-min-1k.tif"),
+                    os.path.join(data_dir, "elevation", "elevation-max-1k.tif"),
+                    os.path.join(data_dir, "elevation", "elevation-min-1k.tif"),
                     os.path.join(data_dir, "crosswalk.csv"),
                     os.path.join(os.path.join(data_dir, "species-info/"), taxa, source, species),
                     os.path.join(os.path.join(data_dir, "masks", "terrestrial_mask.tif")),

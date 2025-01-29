@@ -46,6 +46,8 @@ do
     python3 ./prepare_species/extract_species_data_psql.py --class ${TAXA} --output ${DATADIR}/species-info/${TAXA}/ --projection "ESRI:54009"
 done
 
+python3 ./prepare_species/apply_birdlife_data.py --geojsons ${DATADIR}/species-info/AVES --overrides data/BL_Species_Elevations_2023.csv
+
 python3 ./utils/aoh_generator.py --input ${DATADIR}/species-info --datadir ${DATADIR} --output ${DATADIR}/aohbatch.csv
 
 littlejohn -j 200 -o ${DATADIR}/aohbatch.log -c ${DATADIR}/aohbatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./aoh-calculator/aohcalc.py
