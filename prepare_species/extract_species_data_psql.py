@@ -322,15 +322,21 @@ def extract_data_per_species(
 
         # The limiting amount here is how many concurrent connections the database can take
         with Pool(processes=20) as pool:
-            res = pool.map(partial(process_row, class_name, era_output_directory_path, target_projection, presence), results)
+            res = pool.map(
+                partial(process_row, class_name, era_output_directory_path, target_projection, presence),
+                results
+            )
 
-        df = pd.DataFrame(res, columns=["id_no", "no threats", "no habitats", "no geometries", "included"])
+        df = pd.DataFrame(
+            res,
+            columns=["id_no", "without_threats", "without_habitats", "without_geometries", "included"]
+        )
         print("Summary:")
         print(f"\ttotal:{len(df)}")
-        print(f"\tno threats:{df["no threats"].sum()}")
-        print(f"\tno habiatats:{df["no habitats"].sum()}")
-        print(f"\tno geometries:{df["no geometries"].sum()}")
-        print(f"\tremaining:{df["included"].sum()}")
+        print(f"\tno threats:{df.without_threats.sum()}")
+        print(f"\tno habiatats:{df.without_habitats.sum()}")
+        print(f"\tno geometries:{df.without_geometries.sum()}")
+        print(f"\tremaining:{df.included.sum()}")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
