@@ -62,9 +62,9 @@ WHERE
     assessments.latest = true
     AND assessment_scopes.scope_lookup_id = 15 -- global assessments only
     AND taxons.class_name = %s
-    AND taxons.infra_type is NULL
+    AND taxons.infra_type is NULL -- no subspecies
+    AND taxons.metadata->>'taxon_level' = 'Species'
     AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
-    AND taxons.family_name NOT IN ('Testudines')
 """
 
 THREATS_STATEMENT = """
@@ -200,6 +200,9 @@ def process_geometries(geometries_data: List[Tuple[int,shapely.Geometry]]) -> sh
             continue
 
         grange = shapely.normalize(shapely.from_wkb(row_geometry.to_ewkb()))
+        if grange.area == 0.0:
+            continue
+
         if geometry is None:
             geometry = grange
         else:

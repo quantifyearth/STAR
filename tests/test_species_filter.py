@@ -31,21 +31,28 @@ def test_empty_geometry_list():
     with pytest.raises(ValueError):
         _ = process_geometries(geoemetries_data)
 
-def test_simple_resident_species_geometry_filter():
+def test_simple_resident_species_geometry_filter_point():
     geoemetries_data = [
         (postgis.Geometry.from_ewkb("000000000140000000000000004010000000000000"),),
     ]
+    with pytest.raises(ValueError):
+        _ = process_geometries(geoemetries_data)
+
+def test_simple_resident_species_geometry_filter_polygon():
+    geoemetries_data = [
+        (postgis.Geometry.from_ewkb("0103000000010000000400000000000000000000000000000000000000000000000000F03F000000000000F03F9A9999999999B93F000000000000F03F00000000000000000000000000000000"),),
+    ]
     res = process_geometries(geoemetries_data)
 
-    assert res == shapely.Point(2, 4)
+    assert res == shapely.Polygon([(0.0, 0.0), (0.1, 1.0), (1.0, 1.0), (0.0, 0.0)])
 
 def test_simple_migratory_species_geometry_filter():
     geoemetries_data = [
-        (postgis.Geometry.from_ewkb("000000000140000000000000004010000000000000"),),
-        (postgis.Geometry.from_ewkb("000000000140000000000000004010000000000000"),),
+        (postgis.Geometry.from_ewkb("0103000000010000000400000000000000000000000000000000000000000000000000F03F000000000000F03F9A9999999999B93F000000000000F03F00000000000000000000000000000000"),),
+        (postgis.Geometry.from_ewkb("0103000000010000000400000000000000000000000000000000000000000000000000F03F000000000000F03F9A9999999999B93F000000000000F03F00000000000000000000000000000000"),),
     ]
     res = process_geometries(geoemetries_data)
-    assert res == shapely.Point(2, 4)
+    assert res == shapely.Polygon([(0.1, 1.0), (1.0, 1.0), (0.0, 0.0), (0.1, 1.0)])
 
 def test_empty_threat_list():
     threats_data = []
