@@ -1,5 +1,5 @@
 alive-progress
-numpy<2
+numpy
 geopandas
 postgis
 psycopg2
@@ -9,11 +9,11 @@ scikit-image
 requests
 zenodo_search
 
-gdal[numpy]==3.9.3
+gdal[numpy]
 
 git+https://github.com/quantifyearth/iucn_modlib
 git+https://github.com/quantifyearth/pyshark
-git+https://github.com/quantifyearth/yirgacheffe@cc89b4d8a0e97c1a11b730cd688a58b680023336
+git+https://github.com/quantifyearth/yirgacheffe@ff78ca4c51609ee0750d5c62d38c230632c312f1
 
 pylint
 mypy
