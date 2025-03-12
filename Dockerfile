@@ -26,6 +26,11 @@ COPY ./ /root/star
 WORKDIR /root/star
 RUN chmod 755 ./scripts/run.sh
 
+# We create a DATADIR - this should be mapped at container creation
+# time to a volume somewhere else
+ENV DATADIR=/data
+RUN mkdir -p /data
+
 # This is because outside of Docker we want to ensure
 # the Python virtualenv is set, but in Docker we don't
 # use a virtualenv, as docker *is* a virtualenv

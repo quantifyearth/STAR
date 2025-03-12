@@ -17,4 +17,14 @@ The following extra utilities will need to be installed:
 
 ## Running in Docker
 
-There is included a docker file,
+There is included a docker file, which is based on the GDAL container image, which is set up to install everything ready to use. You can build that using:
+
+```
+$ docker buildx build -t star .
+```
+
+You can then invoke the run script using this. You should map an external folder into the container as a place to store the intermediary data and final results:
+
+```
+$ docker run --rm -v /some/local/dir:/data start ./scripts/run.sh
+```
