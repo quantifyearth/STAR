@@ -30,3 +30,6 @@ RUN chmod 755 ./scripts/run.sh
 # the Python virtualenv is set, but in Docker we don't
 # use a virtualenv, as docker *is* a virtualenv
 ENV VIRTUAL_ENV=/
+
+RUN python3 -m pytest ./tests
+RUN python3 -m pylint prepare_layers prepare_species utils
