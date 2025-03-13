@@ -5,7 +5,7 @@ import math
 import os
 from functools import partial
 from multiprocessing import Pool
-from typing import List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 # import pyshark # pylint: disable=W0611
 import geopandas as gpd
@@ -110,8 +110,49 @@ DB_CONFIG = (
 	f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
+class SpeciesReport:
+
+    REPORT_COLUMNS = [
+        "id_no",
+        "assessment_id",
+        "scientific_name",
+        "possibly_extinct",
+        "has_threats",
+        "has_habitats",
+        "keeps_habitats",
+        "has_geometries",
+        "keeps_geometries",
+        "filename",
+    ]
+
+    def __init__(self, id_no, assessment_id, scientific_name):
+        self.info = {k: False for k in self.REPORT_COLUMNS}
+        self.id_no = id_no
+        self.assessment_id = assessment_id
+        self.scientific_name = scientific_name
+
+    def __getstate__(self):
+        return vars(self)
+
+    def __setstate__(self, state):
+        vars(self).update(state)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in self.REPORT_COLUMNS:
+            self.info[name] = value
+        super().__setattr__(name, value)
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.REPORT_COLUMNS:
+            return self.info[name]
+        return None
+
+    def as_row(self) -> List:
+        return [self.info[k] for k in self.REPORT_COLUMNS]
+
 def tidy_reproject_save(
     gdf: gpd.GeoDataFrame,
+    report: SpeciesReport,
     output_directory_path: str,
     target_projection: Optional[str],
 ) -> None:
@@ -130,6 +171,7 @@ def tidy_reproject_save(
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
     res_projected = res.to_crs(target_crs)
     res_projected.to_file(output_path, driver="GeoJSON")
+    report.filename = output_path
 
 SCOPES = [
     "whole (>90%)",
@@ -154,7 +196,10 @@ THREAT_WEIGHTING_TABLE = [
     [24,  7,  5, 0, 0,  5],
 ]
 
-def process_threats(threat_data: List) -> bool:
+def process_threats(
+    threat_data: List,
+    report: SpeciesReport,
+) -> bool:
     total = 0
     for scope, severity in threat_data:
         if scope is None or scope.lower() == "unknown":
@@ -165,11 +210,16 @@ def process_threats(threat_data: List) -> bool:
         severity_index = SEVERITIES.index(severity.lower())
         score = THREAT_WEIGHTING_TABLE[scope_index][severity_index]
         total += score
+    report.has_threats = total != 0
     return total != 0
 
-def process_habitats(habitats_data: List) -> Set:
+def process_habitats(
+    habitats_data: List,
+    report: SpeciesReport,
+) -> Set:
     if len(habitats_data) == 0:
         raise ValueError("No habitats found")
+    report.has_habitats = True
     if len(habitats_data) > 1:
         raise ValueError("Expected only one habitat row")
 
@@ -185,12 +235,17 @@ def process_habitats(habitats_data: List) -> Set:
 
     if len(habitats) == 0:
         raise ValueError("No filtered habitats")
+    report.keeps_habitats = True
 
     return habitats
 
-def process_geometries(geometries_data: List[Tuple[int,shapely.Geometry]]) -> shapely.Geometry:
+def process_geometries(
+    geometries_data: List[Tuple[int,shapely.Geometry]],
+    report: SpeciesReport,
+) -> shapely.Geometry:
     if len(geometries_data) == 0:
         raise ValueError("No geometries in DB")
+    report.has_geometries = True
 
     geometry = None
     for geometry_row in geometries_data:
@@ -210,6 +265,7 @@ def process_geometries(geometries_data: List[Tuple[int,shapely.Geometry]]) -> sh
 
     if geometry is None:
         raise ValueError("None geometry data in DB")
+    report.keeps_geometries = True
 
     return geometry
 
@@ -228,29 +284,32 @@ def process_row(
     id_no, assessment_id, possibly_extinct, possibly_extinct_in_the_wild, \
         elevation_lower, elevation_upper, scientific_name, family_name, category = row
 
-    cursor.execute(THREATS_STATEMENT, (assessment_id,))
-    raw_threats = cursor.fetchall()
-    threatened = process_threats(raw_threats)
-    if not threatened:
-        return (id_no, 1, 0, 0, 0)
-
-    cursor.execute(HABITATS_STATEMENT, (assessment_id,))
-    raw_habitats = cursor.fetchall()
-    try:
-        habitats = process_habitats(raw_habitats)
-    except ValueError as _exc:
-        return (id_no, 0, 1, 0, 0)
+    report = SpeciesReport(id_no, assessment_id, scientific_name)
 
     # From Chess STAR report
     if possibly_extinct or possibly_extinct_in_the_wild:
         presence += (4,)
+        report.possibly_extinct = True # pylint: disable=W0201
+
+    cursor.execute(THREATS_STATEMENT, (assessment_id,))
+    raw_threats = cursor.fetchall()
+    threatened = process_threats(raw_threats, report)
+    if not threatened:
+        return report
+
+    cursor.execute(HABITATS_STATEMENT, (assessment_id,))
+    raw_habitats = cursor.fetchall()
+    try:
+        habitats = process_habitats(raw_habitats, report)
+    except ValueError as _exc:
+        return report
 
     cursor.execute(GEOMETRY_STATEMENT, (assessment_id, presence))
     geometries_data = cursor.fetchall()
     try:
-        geometry = process_geometries(geometries_data)
+        geometry = process_geometries(geometries_data, report)
     except ValueError as _exc:
-        return (id_no, 0, 0, 1, 0)
+        return report
 
     gdf = gpd.GeoDataFrame(
         [[
@@ -269,8 +328,8 @@ def process_row(
         columns=COLUMNS,
         crs=target_projection or 'epsg:4326'
     )
-    tidy_reproject_save(gdf, output_directory_path, target_projection)
-    return (id_no, 0, 0, 0, 1)
+    tidy_reproject_save(gdf, report, output_directory_path, target_projection)
+    return report
 
 def apply_overrides(
     overrides_path: str,
@@ -325,21 +384,20 @@ def extract_data_per_species(
 
         # The limiting amount here is how many concurrent connections the database can take
         with Pool(processes=20) as pool:
-            res = pool.map(
+            reports = pool.map(
                 partial(process_row, class_name, era_output_directory_path, target_projection, presence),
                 results
             )
+        # reports = [
+        #     process_row(class_name,  era_output_directory_path, target_projection, presence, x)
+        #     for x in results[:10]
+        # ]
 
-        df = pd.DataFrame(
-            res,
-            columns=["id_no", "without_threats", "without_habitats", "without_geometries", "included"]
-        )
-        print("Summary:")
-        print(f"\ttotal:{len(df)}")
-        print(f"\tno threats:{df.without_threats.sum()}")
-        print(f"\tno habiatats:{df.without_habitats.sum()}")
-        print(f"\tno geometries:{df.without_geometries.sum()}")
-        print(f"\tremaining:{df.included.sum()}")
+        reports_df = pd.DataFrame(
+            [x.as_row() for x in reports],
+            columns=SpeciesReport.REPORT_COLUMNS
+        ).sort_values('id_no')
+        reports_df.to_csv(os.path.join(era_output_directory_path, "report.csv"), index=False)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
