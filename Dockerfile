@@ -37,4 +37,4 @@ RUN mkdir -p /data
 ENV VIRTUAL_ENV=/
 
 RUN python3 -m pytest ./tests
-RUN python3 -m pylint prepare_layers prepare_species utils
+RUN python3 -m pylint prepare_layers prepare_species utils tests
