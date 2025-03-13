@@ -23,8 +23,13 @@ There is included a docker file, which is based on the GDAL container image, whi
 $ docker buildx build -t star .
 ```
 
-You can then invoke the run script using this. You should map an external folder into the container as a place to store the intermediary data and final results:
+You can then invoke the run script using this. You should map an external folder into the container as a place to store the intermediary data and final results, and you should provide details about the Postgres instance with the IUCN redlist:
 
 ```
-$ docker run --rm -v /some/local/dir:/data start ./scripts/run.sh
+$ docker run --rm -v /some/local/dir:/data \
+	-e DB_HOST=localhost \
+	-e DB_NAME=iucnredlist \
+	-e DB_PASSWORD=supersecretpassword \
+	-e DB_USER=postgres \
+	star ./scripts/run.sh
 ```
