@@ -418,7 +418,7 @@ def extract_data_per_species(
     if excludes_path is not None:
         try:
             df = pd.read_csv(excludes_path)
-            excludes = tuple([int(x) for x in df.id_no.unique()])
+            excludes = tuple([int(x) for x in df.id_no.unique()]) # pylint: disable=R1728
             logger.info("Excluding %d species", len(excludes))
         except FileNotFoundError:
             pass
