@@ -31,6 +31,7 @@ COLUMNS = [
     "id_no",
     "assessment_id",
     "season",
+    "systems",
     "elevation_lower",
     "elevation_upper",
     "full_habitat_code",
@@ -60,11 +61,25 @@ FROM
     LEFT JOIN red_list_category_lookup ON red_list_category_lookup.id = assessments.red_list_category_id
 WHERE
     assessments.latest = true
+    AND assessments.sis_taxon_id NOT IN %s
     AND assessment_scopes.scope_lookup_id = 15 -- global assessments only
     AND taxons.class_name = %s
     AND taxons.infra_type is NULL -- no subspecies
     AND taxons.metadata->>'taxon_level' = 'Species'
     AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
+"""
+
+SYSTEMS_STATEMENT = """
+SELECT
+    STRING_AGG(system_lookup.description->>'en', '|') AS systems
+FROM
+    assessments
+    LEFT JOIN assessment_systems ON assessment_systems.assessment_id = assessments.id
+    LEFT JOIN system_lookup ON assessment_systems.system_lookup_id = system_lookup.id
+WHERE
+    assessments.id = %s
+GROUP BY
+    assessments.id
 """
 
 THREATS_STATEMENT = """
@@ -117,6 +132,8 @@ class SpeciesReport:
         "assessment_id",
         "scientific_name",
         "possibly_extinct",
+        "has_systems",
+        "not_terrestrial_system",
         "has_threats",
         "has_habitats",
         "keeps_habitats",
@@ -173,6 +190,25 @@ def tidy_reproject_save(
     res_projected.to_file(output_path, driver="GeoJSON")
     report.filename = output_path
 
+def process_systems(
+    systems_data: List[Tuple],
+    report: SpeciesReport,
+) -> None:
+    if len(systems_data) == 0:
+        raise ValueError("No systems found")
+    if len(systems_data) > 1:
+        raise ValueError("More than one systems aggregation found")
+    systems = systems_data[0][0]
+    if systems is None:
+        raise ValueError("no systems info")
+    report.has_systems = True
+
+    if "Terrestrial" not in systems:
+        raise ValueError("No Terrestrial in systems")
+    report.not_terrestrial_system = True
+
+    return systems
+
 SCOPES = [
     "whole (>90%)",
     "majority (50-90%)",
@@ -214,12 +250,14 @@ def process_threats(
     return total != 0
 
 def process_habitats(
-    habitats_data: List,
+    habitats_data: List[List[str]],
     report: SpeciesReport,
 ) -> Set:
     if len(habitats_data) == 0:
-        raise ValueError("No habitats found")
-    report.has_habitats = True
+        # Promote to "Unknown"
+        habitats_data = [["18"]]
+    else:
+        report.has_habitats = True
     if len(habitats_data) > 1:
         raise ValueError("Expected only one habitat row")
 
@@ -229,7 +267,7 @@ def process_habitats(
         habitat_values = habitat_values_row[0]
 
         if habitat_values is None:
-            continue
+            habitat_values = "18"
         habitat_set = {x for x in habitat_values.split('|') if x}
         habitats |= habitat_set
 
@@ -291,6 +329,15 @@ def process_row(
         presence += (4,)
         report.possibly_extinct = True # pylint: disable=W0201
 
+
+    cursor.execute(SYSTEMS_STATEMENT, (assessment_id,))
+    systems_data = cursor.fetchall()
+    try:
+        systems = process_systems(systems_data, report)
+    except ValueError as exc:
+        logger.debug("Dropping %s: %s", id_no, str(exc))
+        return report
+
     cursor.execute(THREATS_STATEMENT, (assessment_id,))
     raw_threats = cursor.fetchall()
     threatened = process_threats(raw_threats, report)
@@ -316,6 +363,7 @@ def process_row(
             id_no,
             assessment_id,
             "all",
+            systems,
             int(elevation_lower) if elevation_lower is not None else None,
             int(elevation_upper) if elevation_upper is not None else None,
             '|'.join(list(habitats)),
@@ -359,7 +407,8 @@ def apply_overrides(
 
 def extract_data_per_species(
     class_name: str,
-    overrides_path: str,
+    overrides_path: Optional[str],
+    excludes_path: Optional[str],
     output_directory_path: str,
     target_projection: Optional[str],
 ) -> None:
@@ -367,12 +416,21 @@ def extract_data_per_species(
     connection = psycopg2.connect(DB_CONFIG)
     cursor = connection.cursor()
 
+    excludes = []
+    if excludes_path is not None:
+        try:
+            df = pd.read_csv(excludes_path)
+            excludes = tuple([int(x) for x in df.id_no.unique()]) # pylint: disable=R1728
+            logger.info("Excluding %d species", len(excludes))
+        except FileNotFoundError:
+            pass
+
     # For STAR-R we need historic data, but for STAR-T we just need current.
     # for era, presence in [("current", (1, 2)), ("historic", (1, 2, 4, 5))]:
     for era, presence in [("current", (1, 2))]:
         era_output_directory_path = os.path.join(output_directory_path, era)
 
-        cursor.execute(MAIN_STATEMENT, (class_name,))
+        cursor.execute(MAIN_STATEMENT, (excludes, class_name,))
         # This can be quite big (tens of thousands), but in modern computer term is quite small
         # and I need to make a follow on DB query per result.
         results = cursor.fetchall()
@@ -416,6 +474,13 @@ def main() -> None:
         dest="overrides",
     )
     parser.add_argument(
+        '--excludes',
+        type=str,
+        help="CSV of taxon IDs to not include",
+        required=False,
+        dest="excludes"
+    )
+    parser.add_argument(
         '--output',
         type=str,
         help='Directory where per species Geojson is stored',
@@ -435,6 +500,7 @@ def main() -> None:
     extract_data_per_species(
         args.classname,
         args.overrides,
+        args.excludes,
         args.output_directory_path,
         args.target_projection
     )
