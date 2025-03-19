@@ -61,6 +61,7 @@ FROM
     LEFT JOIN red_list_category_lookup ON red_list_category_lookup.id = assessments.red_list_category_id
 WHERE
     assessments.latest = true
+    AND assessments.sis_taxon_id NOT IN %s
     AND assessment_scopes.scope_lookup_id = 15 -- global assessments only
     AND taxons.class_name = %s
     AND taxons.infra_type is NULL -- no subspecies
@@ -404,7 +405,8 @@ def apply_overrides(
 
 def extract_data_per_species(
     class_name: str,
-    overrides_path: str,
+    overrides_path: Optional[str],
+    excludes_path: Optional[str],
     output_directory_path: str,
     target_projection: Optional[str],
 ) -> None:
@@ -412,12 +414,21 @@ def extract_data_per_species(
     connection = psycopg2.connect(DB_CONFIG)
     cursor = connection.cursor()
 
+    excludes = []
+    if excludes_path is not None:
+        try:
+            df = pd.read_csv(excludes_path)
+            excludes = tuple([int(x) for x in df.id_no.unique()])
+            logger.info("Excluding %d species", len(excludes))
+        except FileNotFoundError:
+            pass
+
     # For STAR-R we need historic data, but for STAR-T we just need current.
     # for era, presence in [("current", (1, 2)), ("historic", (1, 2, 4, 5))]:
     for era, presence in [("current", (1, 2))]:
         era_output_directory_path = os.path.join(output_directory_path, era)
 
-        cursor.execute(MAIN_STATEMENT, (class_name,))
+        cursor.execute(MAIN_STATEMENT, (excludes, class_name,))
         # This can be quite big (tens of thousands), but in modern computer term is quite small
         # and I need to make a follow on DB query per result.
         results = cursor.fetchall()
@@ -461,6 +472,13 @@ def main() -> None:
         dest="overrides",
     )
     parser.add_argument(
+        '--excludes',
+        type=str,
+        help="CSV of taxon IDs to not include",
+        required=False,
+        dest="excludes"
+    )
+    parser.add_argument(
         '--output',
         type=str,
         help='Directory where per species Geojson is stored',
@@ -480,6 +498,7 @@ def main() -> None:
     extract_data_per_species(
         args.classname,
         args.overrides,
+        args.excludes,
         args.output_directory_path,
         args.target_projection
     )
