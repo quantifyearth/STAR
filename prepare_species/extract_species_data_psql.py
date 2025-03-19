@@ -31,6 +31,7 @@ COLUMNS = [
     "id_no",
     "assessment_id",
     "season",
+    "systems",
     "elevation_lower",
     "elevation_upper",
     "full_habitat_code",
@@ -65,6 +66,19 @@ WHERE
     AND taxons.infra_type is NULL -- no subspecies
     AND taxons.metadata->>'taxon_level' = 'Species'
     AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
+"""
+
+SYSTEMS_STATEMENT = """
+SELECT
+    STRING_AGG(system_lookup.description->>'en', '|') AS systems
+FROM
+    assessments
+    LEFT JOIN assessment_systems ON assessment_systems.assessment_id = assessments.id
+    LEFT JOIN system_lookup ON assessment_systems.system_lookup_id = system_lookup.id
+WHERE
+    assessments.id = %s
+GROUP BY
+    assessments.id
 """
 
 THREATS_STATEMENT = """
@@ -117,6 +131,8 @@ class SpeciesReport:
         "assessment_id",
         "scientific_name",
         "possibly_extinct",
+        "has_systems",
+        "not_terrestrial_system",
         "has_threats",
         "has_habitats",
         "keeps_habitats",
@@ -172,6 +188,25 @@ def tidy_reproject_save(
     res_projected = res.to_crs(target_crs)
     res_projected.to_file(output_path, driver="GeoJSON")
     report.filename = output_path
+
+def process_systems(
+    systems_data: List[Tuple],
+    report: SpeciesReport,
+) -> None:
+    if len(systems_data) == 0:
+        raise ValueError("No systems found")
+    if len(systems_data) > 1:
+        raise ValueError("More than one systems aggregation found")
+    systems = systems_data[0][0]
+    if systems is None:
+        raise ValueError("no systems info")
+    report.has_systems = True
+
+    if "Terrestrial" not in systems:
+        raise ValueError("No Terrestrial in systems")
+    report.not_terrestrial_system = True
+
+    return systems
 
 SCOPES = [
     "whole (>90%)",
@@ -291,6 +326,15 @@ def process_row(
         presence += (4,)
         report.possibly_extinct = True # pylint: disable=W0201
 
+
+    cursor.execute(SYSTEMS_STATEMENT, (assessment_id,))
+    systems_data = cursor.fetchall()
+    try:
+        systems = process_systems(systems_data, report)
+    except ValueError as exc:
+        logger.debug("Dropping %s: %s", id_no, str(exc))
+        return report
+
     cursor.execute(THREATS_STATEMENT, (assessment_id,))
     raw_threats = cursor.fetchall()
     threatened = process_threats(raw_threats, report)
@@ -316,6 +360,7 @@ def process_row(
             id_no,
             assessment_id,
             "all",
+            systems,
             int(elevation_lower) if elevation_lower is not None else None,
             int(elevation_upper) if elevation_upper is not None else None,
             '|'.join(list(habitats)),
