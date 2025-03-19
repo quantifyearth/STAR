@@ -250,12 +250,14 @@ def process_threats(
     return total != 0
 
 def process_habitats(
-    habitats_data: List,
+    habitats_data: List[List[str]],
     report: SpeciesReport,
 ) -> Set:
     if len(habitats_data) == 0:
-        raise ValueError("No habitats found")
-    report.has_habitats = True
+        # Promote to "Unknown"
+        habitats_data = [["18"]]
+    else:
+        report.has_habitats = True
     if len(habitats_data) > 1:
         raise ValueError("Expected only one habitat row")
 
@@ -265,7 +267,7 @@ def process_habitats(
         habitat_values = habitat_values_row[0]
 
         if habitat_values is None:
-            continue
+            habitat_values = "18"
         habitat_set = {x for x in habitat_values.split('|') if x}
         habitats |= habitat_set
 

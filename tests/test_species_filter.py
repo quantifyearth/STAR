@@ -35,10 +35,10 @@ def test_simple_example():
 def test_no_habitats_in_db():
     habitat_data = []
     report = SpeciesReport(1, 2, "name")
-    with pytest.raises(ValueError):
-        _ = process_habitats(habitat_data, report)
+    res = process_habitats(habitat_data, report)
+    assert res == set(["18"])
     assert not report.has_habitats
-    assert not report.keeps_habitats
+    assert report.keeps_habitats
 
 def test_too_many_habitats_in_db():
     habitat_data = [("4.1|4.2",), ("1.2",)]
