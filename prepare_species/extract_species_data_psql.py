@@ -45,11 +45,16 @@ COLUMNS = [
     "geometry"
 ]
 
+# From Muir et al: For each species, a global STAR threat abatement (START) score
+# is defined. This varies from zero for species of Least Concern to 100
+# for Near Threatened, 200 for Vulnerable, 300 for Endangered and
+# 400 for Critically Endangered species (using established weighting
+# ratios7,8)
 CATEGORY_WEIGHTS = {
-    'NT': 1,
-    'VU': 2,
-    'EN': 3,
-    'CR': 4,
+    'NT': 100,
+    'VU': 200,
+    'EN': 300,
+    'CR': 400,
 }
 
 MAIN_STATEMENT = """
