@@ -36,7 +36,7 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Lint with pylint
         run: |
-          python3 -m pylint utils prepare_layers prepare_species
+          python3 -m pylint utils prepare_layers prepare_species threats
       - name: Tests
         run: |
           python3 -m pytest ./tests

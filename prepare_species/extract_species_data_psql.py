@@ -1,5 +1,6 @@
 import argparse
 import importlib
+import json
 import logging
 import math
 import os
@@ -38,9 +39,23 @@ COLUMNS = [
     "scientific_name",
     "family_name",
     "class_name",
+    "threats",
     "category",
+    "category_weight",
     "geometry"
 ]
+
+# From Muir et al: For each species, a global STAR threat abatement (START) score
+# is defined. This varies from zero for species of Least Concern to 100
+# for Near Threatened, 200 for Vulnerable, 300 for Endangered and
+# 400 for Critically Endangered species (using established weighting
+# ratios7,8)
+CATEGORY_WEIGHTS = {
+    'NT': 100,
+    'VU': 200,
+    'EN': 300,
+    'CR': 400,
+}
 
 MAIN_STATEMENT = """
 SELECT
@@ -84,10 +99,12 @@ GROUP BY
 
 THREATS_STATEMENT = """
 SELECT
-    supplementary_fields->>'scope' AS scope,
-    supplementary_fields->>'severity' AS severity
+    threat_lookup.code,
+    assessment_threats.supplementary_fields->>'scope' AS scope,
+    assessment_threats.supplementary_fields->>'severity' AS severity
 FROM
     assessment_threats
+    LEFT JOIN threat_lookup ON assessment_threats.threat_id = threat_lookup.id
 WHERE
     assessment_id = %s
     AND (supplementary_fields->>'timing' is NULL OR supplementary_fields->>'timing' <> 'Past, Unlikely to Return')
@@ -225,7 +242,7 @@ SEVERITIES = [
 ]
 DEFAULT_SEVERITY = "slow, significant declines"
 
-# Taken from Muir et al 2021, indexed by SCOPE and then SEVERITY
+# Taken from Muir et al 2021 Supplementary Table 2, indexed by SCOPE and then SEVERITY
 THREAT_WEIGHTING_TABLE = [
     [63, 24, 10, 1, 0, 10],
     [52, 18,  9, 0, 0,  9],
@@ -236,8 +253,8 @@ def process_threats(
     threat_data: List,
     report: SpeciesReport,
 ) -> bool:
-    total = 0
-    for scope, severity in threat_data:
+    cleaned_threats = []
+    for code, scope, severity in threat_data:
         if scope is None or scope.lower() == "unknown":
             scope = DEFAULT_SCOPE
         if severity is None or severity.lower() == "unknown":
@@ -245,9 +262,10 @@ def process_threats(
         scope_index = SCOPES.index(scope.lower())
         severity_index = SEVERITIES.index(severity.lower())
         score = THREAT_WEIGHTING_TABLE[scope_index][severity_index]
-        total += score
-    report.has_threats = total != 0
-    return total != 0
+        if score > 0:
+            cleaned_threats.append((code, score))
+    report.has_threats = len(cleaned_threats) > 0
+    return cleaned_threats
 
 def process_habitats(
     habitats_data: List[List[str]],
@@ -329,7 +347,6 @@ def process_row(
         presence += (4,)
         report.possibly_extinct = True # pylint: disable=W0201
 
-
     cursor.execute(SYSTEMS_STATEMENT, (assessment_id,))
     systems_data = cursor.fetchall()
     try:
@@ -340,8 +357,8 @@ def process_row(
 
     cursor.execute(THREATS_STATEMENT, (assessment_id,))
     raw_threats = cursor.fetchall()
-    threatened = process_threats(raw_threats, report)
-    if not threatened:
+    threats = process_threats(raw_threats, report)
+    if len(threats) == 0:
         return report
 
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
@@ -370,7 +387,9 @@ def process_row(
             scientific_name,
             family_name,
             class_name,
+            json.dumps(threats),
             category,
+            CATEGORY_WEIGHTS[category],
             geometry
           ]],
         columns=COLUMNS,

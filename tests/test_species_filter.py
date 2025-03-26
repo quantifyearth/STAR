@@ -105,7 +105,7 @@ def test_empty_threat_list():
 
 def test_no_serious_threats():
     threats_data = [
-        ("Minority (<50%)", "No decline"),
+        ("3.5", "Minority (<50%)", "No decline"),
     ]
     report = SpeciesReport(1, 2, "name")
     res = process_threats(threats_data, report)
@@ -114,19 +114,19 @@ def test_no_serious_threats():
 
 def test_serious_threats():
     threats_data = [
-        ("Whole (>90%)", "Very rapid declines"),
+        ("3.4", "Whole (>90%)", "Very rapid declines"),
     ]
     report = SpeciesReport(1, 2, "name")
     res = process_threats(threats_data, report)
-    assert res
+    assert res == [("3.4", 63)]
     assert report.has_threats
 
 def test_mixed_threats():
     threats_data = [
-        ("Whole (>90%)", "Very rapid declines"),
-        ("Minority (<50%)", "No decline"),
+        ("3.4", "Whole (>90%)", "Very rapid declines"),
+        ("3.5", "Minority (<50%)", "No decline"),
     ]
     report = SpeciesReport(1, 2, "name")
     res = process_threats(threats_data, report)
-    assert res
+    assert res == [("3.4", 63)]
     assert report.has_threats
