@@ -7,15 +7,27 @@ See [method.md](method.md) for a description of the methodology, or `scripts/run
 
 # Running the pipeline
 
+## Checking out the code
+
+This repository uses submodules, so once you have cloned it, you need to fetch the submodules:
+
+```shell
+$ git clone https://github.com/quantifyearth/star.git
+$ cd star
+$ git submodule update --init --recursive
+```
+
+## Running the pipeline
+
 The easiest way to get started will be to run `scripts/run.sh` under a linux environment.
 
-## Running on Ubuntu
+### Running on Ubuntu
 
 The following extra utilities will need to be installed:
 
 * [Reclaimer](https://github.com/quantifyearth/reclaimer/) - a utility for downloading data from various primary sources.
 
-## Running in Docker
+### Running in Docker
 
 There is included a docker file, which is based on the GDAL container image, which is set up to install everything ready to use. You can build that using:
 
