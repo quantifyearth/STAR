@@ -51,7 +51,7 @@ python3 ./prepare_layers/convert_crosswalk.py --original ${PWD}/data/crosswalk_b
 # Get species data per taxa from IUCN data
 for TAXA in "${TAXALIST[@]}"
 do
-    python3 ./prepare_species/extract_species_data_psql.py --class ${TAXA} --output ${DATADIR}/species-info/${TAXA}/ --projection "ESRI:54009"
+    python3 ./prepare_species/extract_species_data_psql.py --class ${TAXA} --output ${DATADIR}/species-info/${TAXA}/ --projection "ESRI:54009" --excludes ${DATADIR}/SpeciesList_generalisedRangePolygons.csv
 done
 
 if [ -f data/BL_Species_Elevations_2023.csv ]; then
