@@ -76,7 +76,6 @@ FROM
     LEFT JOIN red_list_category_lookup ON red_list_category_lookup.id = assessments.red_list_category_id
 WHERE
     assessments.latest = true
-    AND assessments.sis_taxon_id NOT IN %s
     AND assessment_scopes.scope_lookup_id = 15 -- global assessments only
     AND taxons.class_name = %s
     AND taxons.infra_type is NULL -- no subspecies
@@ -435,7 +434,7 @@ def extract_data_per_species(
     connection = psycopg2.connect(DB_CONFIG)
     cursor = connection.cursor()
 
-    excludes = []
+    excludes = tuple([])
     if excludes_path is not None:
         try:
             df = pd.read_csv(excludes_path)
@@ -449,7 +448,14 @@ def extract_data_per_species(
     for era, presence in [("current", (1, 2))]:
         era_output_directory_path = os.path.join(output_directory_path, era)
 
-        cursor.execute(MAIN_STATEMENT, (excludes, class_name,))
+        # You can't do NOT IN on an empty list in SQL
+        if excludes:
+            exclude_statement = "AND assessments.sis_taxon_id NOT IN %s"
+            statement = MAIN_STATEMENT + exclude_statement
+            cursor.execute(statement, (class_name, excludes))
+        else:
+            cursor.execute(MAIN_STATEMENT, (class_name,))
+
         # This can be quite big (tens of thousands), but in modern computer term is quite small
         # and I need to make a follow on DB query per result.
         results = cursor.fetchall()
