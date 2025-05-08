@@ -74,3 +74,10 @@ python3 ./aoh-calculator/validation/collate_data.py --aoh_results ${DATADIR}/aoh
                                                     --output ${DATADIR}/validation/aohs.csv
 python3 ./aoh-calculator/validation/validate_map_prevalence.py --collated_aoh_data ${DATADIR}/validation/aohs.csv \
                                                                --output ${DATADIR}/validation/model_validation.csv
+
+# Threats
+python3 ./utils/threats_generator.py --input ${DATADIR}/species-info --datadir ${DATADIR} --output ${DATADIR}/threatbatch.csv
+
+littlejohn -j 200 -o ${DATADIR}/threatbatch.log -c ${DATADIR}/threatcatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./threats/threat_processing.py
+
+python3 ./threats/threat_summation.py --threat_rasters ${DATADIR}/threat_rasters --output ${DATADIR}/threat_results

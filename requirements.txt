@@ -13,7 +13,7 @@ gdal[numpy]
 
 git+https://github.com/quantifyearth/iucn_modlib
 git+https://github.com/quantifyearth/pyshark
-git+https://github.com/quantifyearth/yirgacheffe@ff78ca4c51609ee0750d5c62d38c230632c312f1
+git+https://github.com/quantifyearth/yirgacheffe@4a2cab77f4a64e3f09497ee7098dc9ba499cda90
 
 pylint
 mypy
