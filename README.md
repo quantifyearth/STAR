@@ -1,9 +1,8 @@
 # STAR
 
-A work in progress implementation of the [STAR biodiversity metric by Muir et al](https://www.nature.com/articles/s41559-021-01432-0). Currently only does the initial AoH stages.
+An implementation of the threat based [STAR biodiversity metric by Muir et al](https://www.nature.com/articles/s41559-021-01432-0) (also known as STAR(t)).
 
 See [method.md](method.md) for a description of the methodology, or `scripts/run.sh` for how to execute the pipeline.
-
 
 # Running the pipeline
 
@@ -45,3 +44,7 @@ $ docker run --rm -v /some/local/dir:/data \
 	-e DB_USER=postgres \
 	star ./scripts/run.sh
 ```
+
+# Credits
+
+The author of this package is greatly indebted to both [Francesca Ridley](https://www.ncl.ac.uk/nes/people/profile/francescaridley.html) from the University of Newcastle and [Simon Tarr](https://www.linkedin.com/in/simon-tarr-22069b209/) of the IUCN for their guidance and review.
