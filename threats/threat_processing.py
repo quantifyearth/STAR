@@ -38,9 +38,13 @@ def threat_processing_per_species(
         weighted_species = proportional_aoh_per_pixel * category_weight
 
         total_threat_weight = sum(x[1] for x in threat_data)
+        print(threat_data)
+        print(total_threat_weight)
         for threat_id, weight in threat_data:
+            print(threat_id, weight)
             proportional_threat_weight = weight  / total_threat_weight
             per_threat_per_species_score = weighted_species * proportional_threat_weight
+            print(per_threat_per_species_score.sum())
 
             threat_dir_path = os.path.join(output_directory_path, str(threat_id))
             os.makedirs(threat_dir_path, exist_ok=True)
@@ -49,6 +53,8 @@ def threat_processing_per_species(
                 per_threat_per_species_score.save(result)
 
 def main() -> None:
+    os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
+
     parser = argparse.ArgumentParser(description="Calculate per species threat layers")
     parser.add_argument(
         '--speciesdata',
