@@ -22,27 +22,34 @@ fi
 declare -a TAXALIST=("AMPHIBIA" "AVES" "MAMMALIA" "REPTILIA")
 
 # Get habitat layer and prepare for use
-if [ ! -f ${DATADIR}/habitat/raw.tif ]; then
-    reclaimer zenodo --zenodo_id 3939050 --filename PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif --output ${DATADIR}/habitat/raw.tif
+if [ ! -d ${DATADIR}/${DATADIR}/habitat_layers ]; then
+    if [ ! -f ${DATADIR}/habitat/raw.tif ]; then
+        reclaimer zenodo --zenodo_id 3939050 --filename PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif --output ${DATADIR}/habitat/raw.tif
+    fi
+
+    python3 ./aoh-calculator/habitat_process.py --habitat ${DATADIR}/habitat/raw.tif \
+                                                --scale 1000.0 \
+                                                --projection "ESRI:54009" \
+                                                --output ${DATADIR}/tmp_habitat_layers/current
+    mv ${DATADIR}/tmp_habitat_layers ${DATADIR}/habitat_layers
 fi
 
-python3 ./aoh-calculator/habitat_process.py --habitat ${DATADIR}/habitat/raw.tif \
-                                            --scale 1000.0 \
-                                            --projection "ESRI:54009" \
-                                            --output ${DATADIR}/habitat_layers/current
-
-python3 ./prepare_layers/make_masks.py --habitat_layers ${DATADIR}/habitat_layers/current \
-                                       --output_directory ${DATADIR}/masks
+if [! -d ${DATADIR}/masks ]; then
+    python3 ./prepare_layers/make_masks.py --habitat_layers ${DATADIR}/habitat_layers/current \
+                                        --output_directory ${DATADIR}/masks
+fi
 
 # Fetch and prepare the elevation layers
-if [ ! -f ${DATADIR}/elevation/elevation.tif ]; then
-    reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output ${DATADIR}/elevation/elevation.tif
-fi
-if [ ! -f ${DATADIR}/elevation/elevation-max-1k.tif ]; then
-    gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-max-1k.tif
-fi
-if [ ! -f ${DATADIR}/elevation/elevation-min-1k.tif ]; then
-    gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-min-1k.tif
+if [[ ! -f ${DATADIR}/elevation/elevation-max-1k.tif ]]; then
+    if [ ! -f ${DATADIR}/elevation/elevation.tif ]; then
+        reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output ${DATADIR}/elevation/elevation.tif
+    fi
+    if [ ! -f ${DATADIR}/elevation/elevation-max-1k.tif ]; then
+        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-max-1k.tif
+    fi
+    if [ ! -f ${DATADIR}/elevation/elevation-min-1k.tif ]; then
+        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-min-1k.tif
+    fi
 fi
 
 # Generate the crosswalk table
