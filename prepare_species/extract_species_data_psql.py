@@ -509,7 +509,7 @@ def main() -> None:
     parser.add_argument(
         '--output',
         type=str,
-        help='Directory where per species Geojson is stored',
+        help='Directory where per species GeoJSON is stored',
         required=True,
         dest='output_directory_path',
     )

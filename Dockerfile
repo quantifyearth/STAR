@@ -41,7 +41,7 @@ RUN mkdir -p /data
 # This is because outside of Docker we want to ensure
 # the Python virtualenv is set, but in Docker we don't
 # use a virtualenv, as docker *is* a virtualenv
-ENV VIRTUAL_ENV=/
+ENV VIRTUAL_ENV=/usr
 ENV PYTHONPATH=/root/star
 
 RUN python3 -m pytest ./tests
