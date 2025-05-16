@@ -2,6 +2,7 @@
 
 import argparse
 import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -10,7 +11,8 @@ def threats_generator(
     data_dir: str,
     output_csv_path: str
 ):
-    taxas = os.listdir(input_dir)
+    taxa_dirs = Path(input_dir).glob("[!.]*")
+    taxas = [x.name for x in taxa_dirs]
 
     res = []
     for taxa in taxas:
