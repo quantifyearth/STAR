@@ -4,6 +4,12 @@ WORKDIR /go/reclaimer
 RUN go mod tidy
 RUN go build
 
+FROM golang:latest AS littlejohnbuild
+RUN git clone https://github.com/quantifyearth/littlejohn.git
+WORKDIR /go/littlejohn
+RUN go mod tidy
+RUN go build
+
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.10.0
 
 RUN apt-get update -qqy && \
@@ -15,6 +21,7 @@ RUN apt-get update -qqy && \
 	&& rm -rf /var/cache/apt/*
 
 COPY --from=reclaimerbuild /go/reclaimer/reclaimer /bin/reclaimer
+COPY --from=littlejohnbuild /go/littlejohn/littlejohn /bin/littlejohn
 
 RUN rm /usr/lib/python3.*/EXTERNALLY-MANAGED
 RUN pip install gdal[numpy]==3.10.0
