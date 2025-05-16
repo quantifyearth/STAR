@@ -108,7 +108,7 @@ echo "Generating threat task list..."
 python3 ./utils/threats_generator.py --input ${DATADIR}/species-info --datadir ${DATADIR} --output ${DATADIR}/threatbatch.csv
 
 echo "Generating threat rasters..."
-littlejohn -j ${THREADS} -o ${DATADIR}/threatbatch.log -c ${DATADIR}/threatcatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./threats/threat_processing.py
+littlejohn -j ${THREADS} -o ${DATADIR}/threatbatch.log -c ${DATADIR}/threatbatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./threats/threat_processing.py
 
 echo "Summarising threats..."
 python3 ./threats/threat_summation.py --threat_rasters ${DATADIR}/threat_rasters --output ${DATADIR}/threat_results
