@@ -25,6 +25,7 @@ The easiest way to get started will be to run `scripts/run.sh` under a linux env
 The following extra utilities will need to be installed:
 
 * [Reclaimer](https://github.com/quantifyearth/reclaimer/) - a utility for downloading data from various primary sources.
+* [Littlejohn](https://github.com/quantifyearth/littlejohn/) - a utility to run jobs in parallel driven by a CSV file.
 
 ### Running in Docker
 
