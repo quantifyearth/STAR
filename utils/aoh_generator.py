@@ -2,6 +2,7 @@
 
 import argparse
 import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -10,25 +11,24 @@ def aoh_generator(
     data_dir: str,
     output_csv_path: str
 ):
-    taxas = os.listdir(input_dir)
+    taxa_dirs = Path(input_dir).glob("[!.]*")
+    data_dir = Path(data_dir)
 
     res = []
-    for taxa in taxas:
+    for taxa_dir_path in taxa_dirs:
         for scenario in ['current',]:
             source = 'historic' if scenario == 'pnv' else 'current'
-            taxa_path = os.path.join(input_dir, taxa, source)
-            speciess = os.listdir(taxa_path)
-            for species in speciess:
-                if not species.endswith("geojson"):
-                    continue
+            taxa_path = taxa_dir_path / source
+            species_paths = taxa_path.glob("*.geojson")
+            for species_path in species_paths:
                 res.append([
-                    os.path.join(os.path.join(data_dir, "habitat_layers"), scenario),
-                    os.path.join(data_dir, "elevation", "elevation-max-1k.tif"),
-                    os.path.join(data_dir, "elevation", "elevation-min-1k.tif"),
-                    os.path.join(data_dir, "crosswalk.csv"),
-                    os.path.join(os.path.join(data_dir, "species-info/"), taxa, source, species),
-                    os.path.join(os.path.join(data_dir, "masks", "terrestrial_mask.tif")),
-                    os.path.join(os.path.join(data_dir, "aohs/"), scenario, taxa)
+                    data_dir / "habitat_layers" / scenario,
+                    data_dir / "elevation" / "elevation-max-1k.tif",
+                    data_dir / "elevation" / "elevation-min-1k.tif",
+                    data_dir / "crosswalk.csv",
+                    species_path,
+                    data_dir / "masks" / "terrestrial_mask.tif",
+                    data_dir / "aohs" / scenario / taxa_dir_path.name,
                 ])
 
     df = pd.DataFrame(res, columns=[
@@ -40,6 +40,8 @@ def aoh_generator(
         '--area',
         '--output'
     ])
+    output_dir, _ = os.path.split(output_csv_path)
+    os.makedirs(output_dir, exist_ok=True)
     df.to_csv(output_csv_path, index=False)
 
 
