@@ -19,6 +19,10 @@ if [ -z "${VIRTUAL_ENV}" ]; then
     exit 1
 fi
 
+export CPUS=`getconf _NPROCESSORS_ONLN`
+export THREADS=$(($CPUS / 2))
+echo "Using $THREADS threads."
+
 declare -a TAXALIST=("AMPHIBIA" "AVES" "MAMMALIA" "REPTILIA")
 
 # Get habitat layer and prepare for use
@@ -80,7 +84,7 @@ echo "Generating AoH task list..."
 python3 ./utils/aoh_generator.py --input ${DATADIR}/species-info --datadir ${DATADIR} --output ${DATADIR}/aohbatch.csv
 
 echo "Generating AoHs..."
-littlejohn -j 200 -o ${DATADIR}/aohbatch.log -c ${DATADIR}/aohbatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./aoh-calculator/aohcalc.py
+littlejohn -j ${THREADS} -o ${DATADIR}/aohbatch.log -c ${DATADIR}/aohbatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./aoh-calculator/aohcalc.py
 
 # Calculate predictors from AoHs
 echo "Generating species richness..."
@@ -104,7 +108,7 @@ echo "Generating threat task list..."
 python3 ./utils/threats_generator.py --input ${DATADIR}/species-info --datadir ${DATADIR} --output ${DATADIR}/threatbatch.csv
 
 echo "Generating threat rasters..."
-littlejohn -j 200 -o ${DATADIR}/threatbatch.log -c ${DATADIR}/threatcatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./threats/threat_processing.py
+littlejohn -j ${THREADS} -o ${DATADIR}/threatbatch.log -c ${DATADIR}/threatcatch.csv ${VIRTUAL_ENV}/bin/python3 -- ./threats/threat_processing.py
 
 echo "Summarising threats..."
 python3 ./threats/threat_summation.py --threat_rasters ${DATADIR}/threat_rasters --output ${DATADIR}/threat_results
