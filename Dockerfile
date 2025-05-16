@@ -15,8 +15,11 @@ FROM ghcr.io/osgeo/gdal:ubuntu-small-3.10.0
 RUN apt-get update -qqy && \
 	apt-get install -qy \
 		git \
+		cmake \
 		python3-pip \
+		r-base \
 		libpq-dev \
+		libtirpc-dev \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& rm -rf /var/cache/apt/*
 
@@ -28,6 +31,10 @@ RUN pip install gdal[numpy]==3.10.0
 
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
+
+RUN mkdir /root/R
+ENV R_LIBS_USER=/root/R
+RUN Rscript -e 'install.packages(c("lme4","lmerTest","emmeans"), repos="https://cloud.r-project.org")'
 
 COPY ./ /root/star
 WORKDIR /root/star
