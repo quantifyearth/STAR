@@ -46,7 +46,9 @@ if [ ! -f ${DATADIR}/elevation/elevation-min-1k.tif ]; then
 fi
 
 # Generate the crosswalk table
-python3 ./prepare_layers/convert_crosswalk.py --original ${PWD}/data/crosswalk_bin_T.csv --output ${DATADIR}/crosswalk.csv
+if [ ! -f ${DATADIR}/crosswalk.csv ]; then
+    python3 ./prepare_layers/convert_crosswalk.py --original ${PWD}/data/crosswalk_bin_T.csv --output ${DATADIR}/crosswalk.csv
+fi
 
 # Get species data per taxa from IUCN data
 for TAXA in "${TAXALIST[@]}"
