@@ -36,13 +36,13 @@ python3 ./prepare_layers/make_masks.py --habitat_layers ${DATADIR}/habitat_layer
 
 # Fetch and prepare the elevation layers
 if [ ! -f ${DATADIR}/elevation.tif ]; then
-    reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output ${DATADIR}/elevation.tif
+    reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output ${DATADIR}/elevation/elevation.tif
 fi
 if [ ! -f {DATADIR}/elevation-max-1k.tif ]; then
-    gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation.tif ${DATADIR}/elevation-max-1k.tif
+    gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-max-1k.tif
 fi
 if [ ! -f ${DATADIR}/elevation-min-1k.tif ]; then
-    gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation.tif ${DATADIR}/elevation-min-1k.tif
+    gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-min-1k.tif
 fi
 
 # Generate the crosswalk table
