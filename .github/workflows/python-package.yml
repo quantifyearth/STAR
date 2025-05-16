@@ -22,7 +22,7 @@ jobs:
       - name: Install system
         run: |
           apt-get update -qqy
-          apt-get install -y git python3-pip libpq5 libpq-dev
+          apt-get install -y git python3-pip libpq5 libpq-dev r-base libtirpc-dev
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
