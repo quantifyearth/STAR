@@ -26,8 +26,7 @@ if [ ! -f ${DATADIR}/habitat/raw.tif ]; then
     reclaimer zenodo --zenodo_id 3939050 --filename PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif --output ${DATADIR}/habitat/raw.tif
 fi
 
-python3 ./aoh-calculator/habitat_process.py --habitat ${DATADIR}/habitat/raw.tif \
-                                            --scale 1000.0 \
+                                             --scale 1000.0 \
                                             --projection "ESRI:54009" \
                                             --output ${DATADIR}/habitat_layers/current
 
@@ -46,7 +45,9 @@ if [ ! -f ${DATADIR}/elevation/elevation-min-1k.tif ]; then
 fi
 
 # Generate the crosswalk table
-python3 ./prepare_layers/convert_crosswalk.py --original ${PWD}/data/crosswalk_bin_T.csv --output ${DATADIR}/crosswalk.csv
+if [ ! -f ${DATADIR}/crosswalk.csv ]; then
+    python3 ./prepare_layers/convert_crosswalk.py --original ${PWD}/data/crosswalk_bin_T.csv --output ${DATADIR}/crosswalk.csv
+fi
 
 # Get species data per taxa from IUCN data
 for TAXA in "${TAXALIST[@]}"
