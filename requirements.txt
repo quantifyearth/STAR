@@ -4,6 +4,7 @@ geopandas
 postgis
 psycopg2
 psutil
+pymer4
 pyproj
 scikit-image
 requests
