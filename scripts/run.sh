@@ -38,7 +38,7 @@ python3 ./prepare_layers/make_masks.py --habitat_layers ${DATADIR}/habitat_layer
 if [ ! -f ${DATADIR}/elevation/elevation.tif ]; then
     reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output ${DATADIR}/elevation/elevation.tif
 fi
-if [ ! -f {DATADIR}/elevation/elevation-max-1k.tif ]; then
+if [ ! -f ${DATADIR}/elevation/elevation-max-1k.tif ]; then
     gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 ${DATADIR}/elevation/elevation.tif ${DATADIR}/elevation/elevation-max-1k.tif
 fi
 if [ ! -f ${DATADIR}/elevation/elevation-min-1k.tif ]; then

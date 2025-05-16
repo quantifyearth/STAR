@@ -19,6 +19,8 @@ def aoh_generator(
             taxa_path = os.path.join(input_dir, taxa, source)
             speciess = os.listdir(taxa_path)
             for species in speciess:
+                if not species.endswith("geojson"):
+                    continue
                 res.append([
                     os.path.join(os.path.join(data_dir, "habitat_layers"), scenario),
                     os.path.join(data_dir, "elevation", "elevation-max-1k.tif"),

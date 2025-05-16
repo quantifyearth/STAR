@@ -480,6 +480,7 @@ def extract_data_per_species(
             [x.as_row() for x in reports],
             columns=SpeciesReport.REPORT_COLUMNS
         ).sort_values('id_no')
+        os.makedirs(era_output_directory_path, exist_ok=True)
         reports_df.to_csv(os.path.join(era_output_directory_path, "report.csv"), index=False)
 
 def main() -> None:
