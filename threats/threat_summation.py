@@ -7,7 +7,7 @@ from multiprocessing import Manager, Process, Queue, cpu_count
 from pathlib import Path
 from typing import List
 
-from yirgacheffe.layers import RasterLayer  # type: ignore
+import yirgacheffe as yg
 from osgeo import gdal
 
 gdal.SetCacheMax(1024 * 1024 * 32)
@@ -26,7 +26,7 @@ def worker(
         if path is None:
             break
 
-        with RasterLayer.layer_from_file(path) as partial_raster:
+        with yg.read_raster(path) as partial_raster:
             if merged_result is None:
                 merged_result = RasterLayer.empty_raster_layer_like(partial_raster)
                 cleaned_raster = partial_raster.nan_to_num()
@@ -38,8 +38,7 @@ def worker(
                 merged_result = temp
 
     if merged_result:
-        final = RasterLayer.empty_raster_layer_like(merged_result, filename=output_tif)
-        merged_result.save(final)
+        merged_result.to_geotiff(output_tif)
 
 def raster_sum(
     images_list: List[Path],

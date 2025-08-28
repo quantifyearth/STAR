@@ -4,8 +4,8 @@ import os
 import sys
 
 import geopandas as gpd
+import yirgacheffe as yg
 from pyogrio.errors import DataSourceError
-from yirgacheffe.layers import RasterLayer
 
 def threat_processing_per_species(
     species_data_path: str,
@@ -17,7 +17,7 @@ def threat_processing_per_species(
     except DataSourceError:
         sys.exit(f"Failed to read {species_data_path}")
 
-    with RasterLayer.layer_from_file(aoh_path) as aoh:
+    with yg.read_raster(aoh_path) as aoh:
 
         os.makedirs(output_directory_path, exist_ok=True)
 
@@ -49,8 +49,7 @@ def threat_processing_per_species(
             threat_dir_path = os.path.join(output_directory_path, str(threat_id))
             os.makedirs(threat_dir_path, exist_ok=True)
             output_path = os.path.join(threat_dir_path, f"{taxon_id}.tif")
-            with RasterLayer.empty_raster_layer_like(aoh, filename=output_path) as result:
-                per_threat_per_species_score.save(result)
+            per_threat_per_species_score.to_geotiff(output_path)
 
 def main() -> None:
     os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"

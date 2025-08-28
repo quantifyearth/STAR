@@ -23,7 +23,7 @@ logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
 # To match the FABDEM elevation map we use
-# different range min/max/seperation
+# different range min/max/separation
 ELEVATION_MAX = 8580
 ELEVATION_MIN = -427
 ELEVATION_SPREAD = 12
@@ -31,6 +31,7 @@ ELEVATION_SPREAD = 12
 COLUMNS = [
     "id_no",
     "assessment_id",
+    "assessment_year",
     "season",
     "systems",
     "elevation_lower",
@@ -61,6 +62,7 @@ MAIN_STATEMENT = """
 SELECT
     assessments.sis_taxon_id as id_no,
     assessments.id as assessment_id,
+    DATE_PART('year', assessments.assessment_date) as assessment_year,
     assessments.possibly_extinct,
     assessments.possibly_extinct_in_the_wild,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationLower.limit')::numeric AS elevation_lower,
@@ -336,7 +338,7 @@ def process_row(
     register(connection)
     cursor = connection.cursor()
 
-    id_no, assessment_id, possibly_extinct, possibly_extinct_in_the_wild, \
+    id_no, assessment_id, assessment_year, possibly_extinct, possibly_extinct_in_the_wild, \
         elevation_lower, elevation_upper, scientific_name, family_name, category = row
 
     report = SpeciesReport(id_no, assessment_id, scientific_name)
@@ -378,6 +380,7 @@ def process_row(
         [[
             id_no,
             assessment_id,
+            assessment_year,
             "all",
             systems,
             int(elevation_lower) if elevation_lower is not None else None,
@@ -471,10 +474,6 @@ def extract_data_per_species(
                 partial(process_row, class_name, era_output_directory_path, target_projection, presence),
                 results
             )
-        # reports = [
-        #     process_row(class_name,  era_output_directory_path, target_projection, presence, x)
-        #     for x in results[:10]
-        # ]
 
         reports_df = pd.DataFrame(
             [x.as_row() for x in reports],
