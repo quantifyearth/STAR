@@ -380,7 +380,7 @@ def process_row(
         [[
             id_no,
             assessment_id,
-            assessment_year,
+            int(assessment_year),
             "all",
             systems,
             int(elevation_lower) if elevation_lower is not None else None,
