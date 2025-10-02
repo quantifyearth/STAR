@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List
 
 import yirgacheffe as yg
+from yirgacheffe.layers import RasterLayer
 from osgeo import gdal
 
 gdal.SetCacheMax(1024 * 1024 * 32)

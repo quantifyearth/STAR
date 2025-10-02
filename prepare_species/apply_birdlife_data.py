@@ -32,7 +32,7 @@ def apply_birdlife_data(
         if math.isnan(row["Occasional lower elevation"]) and math.isnan(row["Occasional upper elevation"]):
             continue
 
-        path = os.path.join(geojson_directory_path, "AVES", "current", f"{row["SIS ID"]}.geojson")
+        path = os.path.join(geojson_directory_path, "AVES", "current", f'{row["SIS ID"]}.geojson')
         if not os.path.exists(path):
             continue
 

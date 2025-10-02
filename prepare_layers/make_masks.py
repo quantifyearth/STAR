@@ -24,7 +24,7 @@ def prepare_mask(
     if at_least:
         calc = yo.where(calc >= 0.5, 1.0, 0.0)
     else:
-        calc = yo.where(calc > 0.5, 1.0, 0.0))
+        calc = yo.where(calc > 0.5, 1.0, 0.0)
 
     calc.to_geotiff(output_path, parallelism=128)
 
