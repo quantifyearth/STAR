@@ -10,6 +10,7 @@ scikit-image
 requests
 zenodo_search
 yirgacheffe
+aoh
 
 gdal[numpy]
 

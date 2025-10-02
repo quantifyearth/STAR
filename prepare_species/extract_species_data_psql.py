@@ -8,7 +8,7 @@ from functools import partial
 from multiprocessing import Pool
 from typing import Any, List, Optional, Set, Tuple
 
-# import pyshark # pylint: disable=W0611
+import aoh
 import geopandas as gpd
 import pandas as pd
 import pyproj
@@ -16,7 +16,6 @@ import psycopg2
 import shapely
 from postgis.psycopg import register
 
-aoh_cleaning = importlib.import_module("aoh-calculator.cleaning")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -195,7 +194,7 @@ def tidy_reproject_save(
     target_crs = pyproj.CRS.from_string(target_projection) if target_projection else src_crs
 
     graw = gdf.loc[0].copy()
-    grow = aoh_cleaning.tidy_data(
+    grow = aoh.tidy_data(
         graw,
         elevation_max=ELEVATION_MAX,
         elevation_min=ELEVATION_MIN,

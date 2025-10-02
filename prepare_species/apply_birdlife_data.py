@@ -3,11 +3,9 @@ import importlib
 import math
 import os
 
+import aoh
 import geopandas as gpd
 import pandas as pd
-
-aoh_cleaning = importlib.import_module("aoh-calculator.cleaning")
-
 
 # Columns from current BirdLife data overrides:
 # SIS ID
@@ -49,7 +47,7 @@ def apply_birdlife_data(
             data.elevation_upper = float(row["Occasional upper elevation"])
         else:
             data.elevation_upper = float(data.elevation_upper)
-        data = aoh_cleaning.tidy_data(data)
+        data = aoh.tidy_data(data)
 
         res = gpd.GeoDataFrame(data.to_frame().transpose(), crs=species_info.crs, geometry="geometry")
         res.to_file(path, driver="GeoJSON")
