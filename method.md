@@ -120,8 +120,12 @@ python3 ./prepare_layers/make_masks.py --habitat_layers /data/habitat_layers/cur
 To assist with provenance, we download the data from the Zenodo ID.
 
 ```shark-run:reclaimer
-curl -o FABDEM.zip https://data.bris.ac.uk/datasets/tar/s5hqmjcdj8yo2ibzi9b4ew3sn.zip
-...
+curl -o /data/FABDEM.zip https://data.bris.ac.uk/datasets/tar/s5hqmjcdj8yo2ibzi9b4ew3sn.zip
+```
+
+```shark-run:gdalonly
+python3 tbd.py --input /data/FABDEM.zip \
+    --output /data/elevation.tif
 ```
 
 Similarly to the habitat map we need to resample to 1km, however rather than picking the mean elevation, we select both the min and max elevation for each pixel, and then check whether the species is in that range when we calculate AoH.
@@ -214,4 +218,18 @@ python3 ./aoh-calculator/validation/validate_map_prevelence.py --collated_aoh_da
 
 ```shark-publish
 /data/validation/model_validation.csv
+```
+
+## Threats
+
+```shark-run:aohbuilder
+python3 ./threats/threat_processing.py --speciesdata /data/species-info/* \
+  --aoh /data/aohs/ \
+  --output /data/threat_rasters
+
+python3 ./threats/threat_summation.py --threat_rasters /data/threat_rasters --output /data/threat_results
+```
+
+```shark-publish
+/data/threat_results
 ```
