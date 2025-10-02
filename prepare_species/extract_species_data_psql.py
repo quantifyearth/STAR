@@ -210,7 +210,7 @@ def tidy_reproject_save(
 def process_systems(
     systems_data: List[Tuple],
     report: SpeciesReport,
-) -> None:
+) -> List:
     if len(systems_data) == 0:
         raise ValueError("No systems found")
     if len(systems_data) > 1:
@@ -250,9 +250,9 @@ THREAT_WEIGHTING_TABLE = [
 ]
 
 def process_threats(
-    threat_data: List,
+    threat_data: List[Tuple[int,str,str]],
     report: SpeciesReport,
-) -> bool:
+) -> List[Tuple[int,int]]:
     cleaned_threats = []
     for code, scope, severity in threat_data:
         if scope is None or scope.lower() == "unknown":
@@ -329,9 +329,9 @@ def process_row(
     class_name: str,
     output_directory_path: str,
     target_projection: Optional[str],
-    presence: Tuple[int],
+    presence: Tuple[int, ...],
     row: Tuple,
-) -> Tuple:
+) -> SpeciesReport:
 
     connection = psycopg2.connect(DB_CONFIG)
     register(connection)
@@ -436,7 +436,7 @@ def extract_data_per_species(
     connection = psycopg2.connect(DB_CONFIG)
     cursor = connection.cursor()
 
-    excludes = tuple([])
+    excludes: Tuple = tuple([])
     if excludes_path is not None:
         try:
             df = pd.read_csv(excludes_path)

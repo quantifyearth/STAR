@@ -53,3 +53,4 @@ ENV PYTHONPATH=/root/star
 
 RUN python3 -m pytest ./tests
 RUN python3 -m pylint prepare_layers prepare_species utils tests
+RUN python3 -m mypy prepare_layers prepare_speices utils tests
