@@ -1,6 +1,6 @@
 import argparse
 import math
-import os
+from pathlib import Path
 
 import aoh
 import geopandas as gpd
@@ -22,8 +22,8 @@ import pandas as pd
 # Occasional upper elevation
 
 def apply_birdlife_data(
-    geojson_directory_path: str,
-    overrides_path: str,
+    geojson_directory_path: Path,
+    overrides_path: Path,
 ) -> None:
     overrides = pd.read_csv(overrides_path, encoding="latin1")
 
@@ -31,8 +31,8 @@ def apply_birdlife_data(
         if math.isnan(row["Occasional lower elevation"]) and math.isnan(row["Occasional upper elevation"]):
             continue
 
-        path = os.path.join(geojson_directory_path, "AVES", "current", f'{row["SIS ID"]}.geojson')
-        if not os.path.exists(path):
+        path = geojson_directory_path / "AVES" / "current" / f'{row["SIS ID"]}.geojson'
+        if not path.exists():
             continue
 
         species_info = gpd.read_file(path)
@@ -55,14 +55,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
     parser.add_argument(
         '--geojsons',
-        type=str,
+        type=Path,
         help='Directory where per species Geojson is stored',
         required=True,
         dest='geojson_directory_path',
     )
     parser.add_argument(
         '--overrides',
-        type=str,
+        type=Path,
         help="CSV of overrides",
         required=True,
         dest="overrides",

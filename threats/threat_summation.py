@@ -5,7 +5,6 @@ import tempfile
 import time
 from multiprocessing import Manager, Process, Queue, cpu_count
 from pathlib import Path
-from typing import List
 
 import yirgacheffe as yg
 from yirgacheffe.layers import RasterLayer
@@ -39,7 +38,7 @@ def worker(
         merged_result.to_geotiff(output_tif)
 
 def raster_sum(
-    images_list: List[Path],
+    images_list: list[Path],
     output_filename: Path,
     processes_count: int
 ) -> None:

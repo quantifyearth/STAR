@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import pandas as pd
 
@@ -28,8 +29,8 @@ IUCN_HABITAT_CODES = {
 }
 
 def convert_crosswalk(
-    original_path: str,
-    output_path: str,
+    original_path: Path,
+    output_path: Path,
 ) -> None:
     original = pd.read_csv(original_path)
 
@@ -56,14 +57,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Convert IUCN crosswalk to minimal common format.")
     parser.add_argument(
         '--original',
-        type=str,
+        type=Path,
         help="Original format",
         required=True,
         dest="original_path",
     )
     parser.add_argument(
         '--output',
-        type=str,
+        type=Path,
         help='Destination minimal file',
         required=True,
         dest='output_path',
