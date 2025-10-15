@@ -8,14 +8,12 @@ pymer4
 pyproj
 scikit-image
 requests
-zenodo_search
 yirgacheffe
 aoh
 
 gdal[numpy]
 
 git+https://github.com/quantifyearth/iucn_modlib
-git+https://github.com/quantifyearth/pyshark
 
 pylint
 mypy

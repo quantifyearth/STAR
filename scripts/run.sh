@@ -48,6 +48,10 @@ fi
 
 declare -a TAXALIST=("AMPHIBIA" "AVES" "MAMMALIA" "REPTILIA")
 
+if [ ! -d "${DATADIR}" ]; then
+    mkdir "${DATADIR}"
+fi
+
 # Get habitat layer and prepare for use
 if [ ! -d "${DATADIR}"/habitat_layers ]; then
     if [ ! -f "${DATADIR}"/habitat/raw.tif ]; then
@@ -73,6 +77,7 @@ fi
 if [[ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif || ! -f "${DATADIR}"/elevation/elevation-min-1k.tif ]]; then
     if [ ! -f "${DATADIR}"/elevation/elevation.tif ]; then
         echo "Fetching elevation map..."
+        mkdir -p "${DATADIR}"/elevation
         reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output "${DATADIR}"/elevation/elevation.tif
     fi
     if [ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif ]; then
