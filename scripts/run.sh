@@ -56,7 +56,9 @@ fi
 if [ ! -d "${DATADIR}"/habitat_layers ]; then
     if [ ! -f "${DATADIR}"/habitat/raw.tif ]; then
         echo "Fetching habitat map..."
-        reclaimer zenodo --zenodo_id 3939050 --filename PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif --output "${DATADIR}"/habitat/raw.tif
+        reclaimer zenodo --zenodo_id 3939050 \
+                         --filename PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif \
+                         --output "${DATADIR}"/habitat/raw.tif
     fi
 
     echo "Processing habitat map..."
