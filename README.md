@@ -16,6 +16,14 @@ $ cd star
 $ git submodule update --init --recursive
 ```
 
+## Additional inputs
+
+There are some additional inputs required to run the pipeline, which should be plated in the directory you use to store the pipeline results.
+
+* crosswalk_bin_T.csv - the crosswalk table from the [Lumbierres et al 2021](https://conbio.onlinelibrary.wiley.com/doi/10.1111/cobi.13851)
+* SpeciesList_generalisedRangePolygons.csv - A list of species with generalised ranges on the IUCN Redlist.
+* BL_Species_Elevations_2023.csv (optional) - corrections to the elevation of birdlife species on the IUCN Redlist taken from the BirdLife data.
+
 ## Running the pipeline
 
 The easiest way to get started will be to run `scripts/run.sh` under a linux environment.
