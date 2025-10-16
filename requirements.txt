@@ -9,7 +9,7 @@ pyproj
 scikit-image
 requests
 yirgacheffe
-aoh
+aoh[validation]
 
 gdal[numpy]
 

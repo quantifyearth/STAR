@@ -93,7 +93,7 @@ fi
 # Generate the crosswalk table
 if [ ! -f "${DATADIR}"/crosswalk.csv ]; then
     echo "Generating crosswalk table..."
-    python3 ./prepare_layers/convert_crosswalk.py --original "${PWD}"/data/crosswalk_bin_T.csv --output "${DATADIR}"/crosswalk.csv
+    python3 ./prepare_layers/convert_crosswalk.py --original "${DATADIR}"/crosswalk_bin_T.csv --output "${DATADIR}"/crosswalk.csv
 fi
 
 # Get species data per taxa from IUCN data
@@ -105,9 +105,9 @@ do
     fi
 done
 
-if [ -f data/BL_Species_Elevations_2023.csv ]; then
+if [ -f "${DATADIR}"/BL_Species_Elevations_2023.csv ]; then
     echo "Applying birdlife data..."
-    python3 ./prepare_species/apply_birdlife_data.py --geojsons "${DATADIR}"/species-info/AVES --overrides data/BL_Species_Elevations_2023.csv
+    python3 ./prepare_species/apply_birdlife_data.py --geojsons "${DATADIR}"/species-info/AVES --overrides "${DATADIR}"/BL_Species_Elevations_2023.csv
 fi
 
 echo "Generating AoH task list..."
@@ -118,20 +118,20 @@ littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/ao
 
 # Calculate predictors from AoHs
 echo "Generating species richness..."
-python3 ./aoh-calculator/summaries/species_richness.py --aohs_folder "${DATADIR}"/aohs/current/ \
-                                                       --output "${DATADIR}"/summaries/species_richness.tif
+aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
+                     --output "${DATADIR}"/summaries/species_richness.tif
 echo "Generating endemism..."
-python3 ./aoh-calculator/summaries/endemism.py --aohs_folder "${DATADIR}"/aohs/current/ \
-                                               --species_richness "${DATADIR}"/summaries/species_richness.tif \
-                                               --output "${DATADIR}"/summaries/endemism.tif
+aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
+             --species_richness "${DATADIR}"/summaries/species_richness.tif \
+             --output "${DATADIR}"/summaries/endemism.tif
 
 # Aoh Validation
 echo "Collating validation data..."
-python3 ./aoh-calculator/validation/collate_data.py --aoh_results "${DATADIR}"/aohs/current/ \
-                                                    --output "${DATADIR}"/validation/aohs.csv
+aoh-collate-data --aoh_results "${DATADIR}"/aohs/current/ \
+                 --output "${DATADIR}"/validation/aohs.csv
 echo "Calculating model validation..."
-python3 ./aoh-calculator/validation/validate_map_prevalence.py --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
-                                                               --output "${DATADIR}"/validation/model_validation.csv
+aoh-validate-prevalence --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
+                        --output "${DATADIR}"/validation/model_validation.csv
 
 # Threats
 echo "Generating threat task list..."
