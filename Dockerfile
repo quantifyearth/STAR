@@ -10,13 +10,14 @@ WORKDIR /go/littlejohn
 RUN go mod tidy
 RUN go build
 
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.10.0
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.4
 
 RUN apt-get update -qqy && \
 	apt-get install -qy \
 		git \
 		cmake \
 		python3-pip \
+		shellcheck \
 		r-base \
 		libpq-dev \
 		libtirpc-dev \
@@ -27,7 +28,7 @@ COPY --from=reclaimerbuild /go/reclaimer/reclaimer /bin/reclaimer
 COPY --from=littlejohnbuild /go/littlejohn/littlejohn /bin/littlejohn
 
 RUN rm /usr/lib/python3.*/EXTERNALLY-MANAGED
-RUN pip install gdal[numpy]==3.10.0
+RUN pip install gdal[numpy]==3.11.4
 
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
@@ -54,3 +55,4 @@ ENV PYTHONPATH=/root/star
 RUN python3 -m pytest ./tests
 RUN python3 -m pylint prepare_layers prepare_species utils tests
 RUN python3 -m mypy prepare_layers prepare_speices utils tests
+RUN shellcheck ./scripts/run.sh

@@ -15,6 +15,8 @@ If not, you will need:
 * Python3 >= 3.10
 * GDAL
 * R (required for validation)
+* [Reclaimer](https://github.com/quantifyearth/reclaimer/) - a Go tool for fetching data from Zenodo
+* [Littlejohn](https://github.com/quantifyearth/littlejohn/) - a Go tool for running scripts in parallel
 
 If you are using macOS please note that the default Python install that Apple ships is now several years out of date (Python 3.9, released Oct 2020) and you'll need to install a more recent version (for example, using [homebrew](https://brew.sh)).
 
