@@ -1,13 +1,14 @@
 import argparse
 import os
 import shutil
+from pathlib import Path
 
 import pandas as pd
 
 def collect_validation_data(
-    model_results_path: str,
-    data_dir: str,
-    output_dir: str,
+    model_results_path: Path,
+    data_dir: Path,
+    output_dir: Path,
 ) -> None:
     model_results = pd.read_csv(model_results_path)
     os.makedirs(output_dir, exist_ok=True)
@@ -29,21 +30,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Collected range/AOH for species that failed validation")
     parser.add_argument(
         '--model_results',
-        type=str,
+        type=Path,
         help="directory with taxa folders of species info",
         required=True,
         dest="model_results_path"
     )
     parser.add_argument(
         '--datadir',
-        type=str,
+        type=Path,
         help="directory for results",
         required=True,
         dest="data_dir",
     )
     parser.add_argument(
         '--output',
-        type=str,
+        type=Path,
         help="name of output directory",
         required=True,
         dest="output"

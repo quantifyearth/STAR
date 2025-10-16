@@ -5,20 +5,17 @@ import tempfile
 import time
 from multiprocessing import Manager, Process, Queue, cpu_count
 from pathlib import Path
-from typing import List
 
-from yirgacheffe.layers import RasterLayer  # type: ignore
+import yirgacheffe as yg
+from yirgacheffe.layers import RasterLayer
 from osgeo import gdal
 
 gdal.SetCacheMax(1024 * 1024 * 32)
 
 def worker(
-    filename: str,
-    result_dir: str,
+    output_tif: Path,
     input_queue: Queue,
 ) -> None:
-    output_tif = os.path.join(result_dir, filename)
-
     merged_result = None
 
     while True:
@@ -26,7 +23,7 @@ def worker(
         if path is None:
             break
 
-        with RasterLayer.layer_from_file(path) as partial_raster:
+        with yg.read_raster(path) as partial_raster:
             if merged_result is None:
                 merged_result = RasterLayer.empty_raster_layer_like(partial_raster)
                 cleaned_raster = partial_raster.nan_to_num()
@@ -38,24 +35,22 @@ def worker(
                 merged_result = temp
 
     if merged_result:
-        final = RasterLayer.empty_raster_layer_like(merged_result, filename=output_tif)
-        merged_result.save(final)
+        merged_result.to_geotiff(output_tif)
 
 def raster_sum(
-    images_list: List[Path],
-    output_filename: str,
+    images_list: list[Path],
+    output_filename: Path,
     processes_count: int
 ) -> None:
-    result_dir, filename = os.path.split(output_filename)
-    os.makedirs(result_dir, exist_ok=True)
+    os.makedirs(output_filename.parent, exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as tempdir:
+    with tempfile.TemporaryDirectory() as tempdir_str:
+        tempdir = Path(tempdir_str)
         with Manager() as manager:
             source_queue = manager.Queue()
 
             workers = [Process(target=worker, args=(
-                f"{index}.tif",
-                tempdir,
+                tempdir / f"{index}.tif",
                 source_queue
             )) for index in range(processes_count)]
             for worker_process in workers:
@@ -80,8 +75,7 @@ def raster_sum(
 
             # here we should have now a set of images in tempdir to merge
             single_worker = Process(target=worker, args=(
-                filename,
-                result_dir,
+                output_filename,
                 source_queue
             ))
             single_worker.start()
@@ -103,17 +97,17 @@ def raster_sum(
                 time.sleep(1)
 
 def reduce_to_next_level(
-    rasters_directory: str,
-    output_directory: str,
+    rasters_directory: Path,
+    output_directory: Path,
     processes_count: int,
 ) -> None:
 
-    files = list(Path(rasters_directory).glob("**/*.tif"))
+    files = list(rasters_directory.glob("**/*.tif"))
     print(f"total items: {len(files)}")
     if not files:
         sys.exit(f"No files in {rasters_directory}, aborting")
 
-    buckets = {}
+    buckets: dict[str,list[Path]] = {}
     for filename in files:
         code, _ = os.path.splitext(filename.name)
         next_level_threat_id = ".".join(code.split('.')[:-1])
@@ -126,22 +120,22 @@ def reduce_to_next_level(
 
     print(f"Found {len(buckets)} threats at current level:")
     for code, files in buckets.items():
-        target_output = os.path.join(output_directory, f"{code}.tif")
+        target_output = output_directory / f"{code}.tif"
         print(f"processing {code}: {len(files)} items")
         raster_sum(files, target_output, processes_count)
 
 def reduce_from_species(
-    rasters_directory: str,
-    output_directory: str,
+    rasters_directory: Path,
+    output_directory: Path,
     processes_count: int,
 ) -> None:
 
-    files = list(Path(rasters_directory).glob("**/*.tif"))
+    files = list(rasters_directory.glob("**/*.tif"))
     print(f"total items: {len(files)}")
     if not files:
         sys.exit(f"No files in {rasters_directory}, aborting")
 
-    buckets = {}
+    buckets: dict[str,list[Path]] = {}
     for filename in files:
         threat_code = filename.parts[-2]
         levels = threat_code.split('.')
@@ -159,31 +153,30 @@ def reduce_from_species(
 
     print(f"Found {len(buckets)} threats at current level:")
     for code, files in buckets.items():
-        target_output = os.path.join(output_directory, f"{code}.tif")
+        target_output = output_directory / f"{code}.tif"
         print(f"processing {code}: {len(files)} items")
         raster_sum(files, target_output, processes_count)
 
-
 def threat_summation(
-    rasters_directory: str,
-    output_directory: str,
+    rasters_directory: Path,
+    output_directory: Path,
     processes_count: int,
 ) -> None:
     os.makedirs(output_directory, exist_ok=True)
 
     # All these files are at level3 to start with, so first make level2
     print("processing level 2")
-    level2_target = os.path.join(output_directory, "level2")
+    level2_target = output_directory / "level2"
     reduce_from_species(rasters_directory, level2_target, processes_count)
 
     # Now reduce level2 to level1
     print("processing level 1")
-    level1_target = os.path.join(output_directory, "level1")
+    level1_target = output_directory / "level1"
     reduce_to_next_level(level2_target, level1_target, processes_count)
 
     # Now build a final top level STAR
     print("processing level 0")
-    final_target = os.path.join(output_directory, "level0")
+    final_target = output_directory / "level0"
     reduce_to_next_level(level1_target, final_target, processes_count)
 
 
@@ -191,14 +184,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generates the combined, and level 1 and level 2 threat rasters.")
     parser.add_argument(
         "--threat_rasters",
-        type=str,
+        type=Path,
         required=True,
         dest="rasters_directory",
         help="GeoTIFF file containing level three per species threats"
     )
     parser.add_argument(
         "--output",
-        type=str,
+        type=Path,
         required=True,
         dest="output_directory",
         help="Destination directory file for results."

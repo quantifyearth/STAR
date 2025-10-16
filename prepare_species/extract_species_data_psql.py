@@ -1,14 +1,14 @@
 import argparse
-import importlib
 import json
 import logging
 import math
 import os
 from functools import partial
 from multiprocessing import Pool
-from typing import Any, List, Optional, Set, Tuple
+from pathlib import Path
+from typing import Any, Optional
 
-# import pyshark # pylint: disable=W0611
+import aoh
 import geopandas as gpd
 import pandas as pd
 import pyproj
@@ -16,14 +16,13 @@ import psycopg2
 import shapely
 from postgis.psycopg import register
 
-aoh_cleaning = importlib.import_module("aoh-calculator.cleaning")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
 # To match the FABDEM elevation map we use
-# different range min/max/seperation
+# different range min/max/separation
 ELEVATION_MAX = 8580
 ELEVATION_MIN = -427
 ELEVATION_SPREAD = 12
@@ -31,6 +30,7 @@ ELEVATION_SPREAD = 12
 COLUMNS = [
     "id_no",
     "assessment_id",
+    "assessment_year",
     "season",
     "systems",
     "elevation_lower",
@@ -61,6 +61,7 @@ MAIN_STATEMENT = """
 SELECT
     assessments.sis_taxon_id as id_no,
     assessments.id as assessment_id,
+    DATE_PART('year', assessments.assessment_date) as assessment_year,
     assessments.possibly_extinct,
     assessments.possibly_extinct_in_the_wild,
     (assessment_supplementary_infos.supplementary_fields->>'ElevationLower.limit')::numeric AS elevation_lower,
@@ -180,36 +181,36 @@ class SpeciesReport:
             return self.info[name]
         return None
 
-    def as_row(self) -> List:
+    def as_row(self) -> list:
         return [self.info[k] for k in self.REPORT_COLUMNS]
 
 def tidy_reproject_save(
     gdf: gpd.GeoDataFrame,
     report: SpeciesReport,
-    output_directory_path: str,
+    output_directory_path: Path,
     target_projection: Optional[str],
 ) -> None:
     src_crs = pyproj.CRS.from_epsg(4326)
     target_crs = pyproj.CRS.from_string(target_projection) if target_projection else src_crs
 
     graw = gdf.loc[0].copy()
-    grow = aoh_cleaning.tidy_data(
+    grow = aoh.tidy_data(
         graw,
         elevation_max=ELEVATION_MAX,
         elevation_min=ELEVATION_MIN,
         elevation_seperation=ELEVATION_SPREAD,
     )
     os.makedirs(output_directory_path, exist_ok=True)
-    output_path = os.path.join(output_directory_path, f"{grow.id_no}.geojson")
+    output_path = output_directory_path / f"{grow.id_no}.geojson"
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
     res_projected = res.to_crs(target_crs)
     res_projected.to_file(output_path, driver="GeoJSON")
     report.filename = output_path
 
 def process_systems(
-    systems_data: List[Tuple],
+    systems_data: list[tuple],
     report: SpeciesReport,
-) -> None:
+) -> list:
     if len(systems_data) == 0:
         raise ValueError("No systems found")
     if len(systems_data) > 1:
@@ -249,9 +250,9 @@ THREAT_WEIGHTING_TABLE = [
 ]
 
 def process_threats(
-    threat_data: List,
+    threat_data: list[tuple[int, str, str]],
     report: SpeciesReport,
-) -> bool:
+) -> list[tuple[int, int]]:
     cleaned_threats = []
     for code, scope, severity in threat_data:
         if scope is None or scope.lower() == "unknown":
@@ -267,9 +268,9 @@ def process_threats(
     return cleaned_threats
 
 def process_habitats(
-    habitats_data: List[List[str]],
+    habitats_data: list[list[str]],
     report: SpeciesReport,
-) -> Set:
+) -> set:
     if len(habitats_data) == 0:
         # Promote to "Unknown"
         habitats_data = [["18"]]
@@ -295,7 +296,7 @@ def process_habitats(
     return habitats
 
 def process_geometries(
-    geometries_data: List[Tuple[int,shapely.Geometry]],
+    geometries_data: list[tuple[int, shapely.Geometry]],
     report: SpeciesReport,
 ) -> shapely.Geometry:
     if len(geometries_data) == 0:
@@ -326,17 +327,17 @@ def process_geometries(
 
 def process_row(
     class_name: str,
-    output_directory_path: str,
+    output_directory_path: Path,
     target_projection: Optional[str],
-    presence: Tuple[int],
-    row: Tuple,
-) -> Tuple:
+    presence: tuple[int, ...],
+    row: tuple,
+) -> SpeciesReport:
 
     connection = psycopg2.connect(DB_CONFIG)
     register(connection)
     cursor = connection.cursor()
 
-    id_no, assessment_id, possibly_extinct, possibly_extinct_in_the_wild, \
+    id_no, assessment_id, assessment_year, possibly_extinct, possibly_extinct_in_the_wild, \
         elevation_lower, elevation_upper, scientific_name, family_name, category = row
 
     report = SpeciesReport(id_no, assessment_id, scientific_name)
@@ -378,6 +379,7 @@ def process_row(
         [[
             id_no,
             assessment_id,
+            int(assessment_year),
             "all",
             systems,
             int(elevation_lower) if elevation_lower is not None else None,
@@ -398,7 +400,7 @@ def process_row(
     return report
 
 def apply_overrides(
-    overrides_path: str,
+    overrides_path: Path,
     results,
 ):
     overrides = pd.read_csv(overrides_path, encoding="latin1")
@@ -425,16 +427,16 @@ def apply_overrides(
 
 def extract_data_per_species(
     class_name: str,
-    overrides_path: Optional[str],
-    excludes_path: Optional[str],
-    output_directory_path: str,
+    overrides_path: Optional[Path],
+    excludes_path: Optional[Path],
+    output_directory_path: Path,
     target_projection: Optional[str],
 ) -> None:
 
     connection = psycopg2.connect(DB_CONFIG)
     cursor = connection.cursor()
 
-    excludes = tuple([])
+    excludes: tuple = tuple([])
     if excludes_path is not None:
         try:
             df = pd.read_csv(excludes_path)
@@ -446,7 +448,7 @@ def extract_data_per_species(
     # For STAR-R we need historic data, but for STAR-T we just need current.
     # for era, presence in [("current", (1, 2)), ("historic", (1, 2, 4, 5))]:
     for era, presence in [("current", (1, 2))]:
-        era_output_directory_path = os.path.join(output_directory_path, era)
+        era_output_directory_path = output_directory_path / era
 
         # You can't do NOT IN on an empty list in SQL
         if excludes:
@@ -471,17 +473,13 @@ def extract_data_per_species(
                 partial(process_row, class_name, era_output_directory_path, target_projection, presence),
                 results
             )
-        # reports = [
-        #     process_row(class_name,  era_output_directory_path, target_projection, presence, x)
-        #     for x in results[:10]
-        # ]
 
         reports_df = pd.DataFrame(
             [x.as_row() for x in reports],
             columns=SpeciesReport.REPORT_COLUMNS
         ).sort_values('id_no')
         os.makedirs(era_output_directory_path, exist_ok=True)
-        reports_df.to_csv(os.path.join(era_output_directory_path, "report.csv"), index=False)
+        reports_df.to_csv(era_output_directory_path / "report.csv", index=False)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
@@ -494,21 +492,21 @@ def main() -> None:
     )
     parser.add_argument(
         '--overrides',
-        type=str,
+        type=Path,
         help="CSV of overrides",
         required=False,
         dest="overrides",
     )
     parser.add_argument(
         '--excludes',
-        type=str,
+        type=Path,
         help="CSV of taxon IDs to not include",
         required=False,
         dest="excludes"
     )
     parser.add_argument(
         '--output',
-        type=str,
+        type=Path,
         help='Directory where per species GeoJSON is stored',
         required=True,
         dest='output_directory_path',

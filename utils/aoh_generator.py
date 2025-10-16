@@ -7,12 +7,11 @@ from pathlib import Path
 import pandas as pd
 
 def aoh_generator(
-    input_dir: str,
-    data_dir: str,
-    output_csv_path: str
+    input_dir: Path,
+    data_dir: Path,
+    output_csv_path: Path,
 ):
-    taxa_dirs = Path(input_dir).glob("[!.]*")
-    data_dir = Path(data_dir)
+    taxa_dirs = input_dir.glob("[!.]*")
 
     res = []
     for taxa_dir_path in taxa_dirs:
@@ -49,21 +48,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Species and seasonality generator.")
     parser.add_argument(
         '--input',
-        type=str,
+        type=Path,
         help="directory with taxa folders of species info",
         required=True,
         dest="input_dir"
     )
     parser.add_argument(
         '--datadir',
-        type=str,
+        type=Path,
         help="directory for results",
         required=True,
         dest="data_dir",
     )
     parser.add_argument(
         '--output',
-        type=str,
+        type=Path,
         help="name of output file for csv",
         required=True,
         dest="output"
