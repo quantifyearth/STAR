@@ -18,7 +18,6 @@ $ cd STAR
 
 There are some additional inputs required to run the pipeline, which should be placed in the directory you use to store the pipeline results.
 
-* crosswalk_bin_T.csv - the crosswalk table from the [Lumbierres et al 2021](https://conbio.onlinelibrary.wiley.com/doi/10.1111/cobi.13851)
 * SpeciesList_generalisedRangePolygons.csv - A list of species with generalised ranges on the IUCN Redlist.
 * BL_Species_Elevations_2023.csv (optional) - corrections to the elevation of birdlife species on the IUCN Redlist taken from the BirdLife data.
 
@@ -97,3 +96,17 @@ Once you have all that you can then run the pipeline:
 # Credits
 
 The author of this package is greatly indebted to both [Francesca Ridley](https://www.ncl.ac.uk/nes/people/profile/francescaridley.html) from the University of Newcastle and [Simon Tarr](https://www.linkedin.com/in/simon-tarr-22069b209/) of the IUCN for their guidance and review.
+
+## Data Attribution
+
+The crosswalk table `data/crosswalk_bin_T.csv` was created by [Francesca Ridley](https://www.ncl.ac.uk/nes/people/profile/francescaridley.html) and is derived from:
+
+```
+Lumbierres, M., Dahal, P.R., Di Marco, M., Butchart, S.H.M., Donald, P.F.,
+& Rondinini, C. (2022). Translating habitat class to land cover to map area
+of habitat of terrestrial vertebrates. Conservation Biology, 36, e13851.
+https://doi.org/10.1111/cobi.13851
+```
+
+The paper is licensed under CC BY-NC. It is used in this STAR implementation to crosswalk between the IUCN Habitat classes in the Redlist and the land classes in the Copernicus data layers.
+

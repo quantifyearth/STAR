@@ -94,7 +94,7 @@ fi
 # Generate the crosswalk table
 if [ ! -f "${DATADIR}"/crosswalk.csv ]; then
     echo "Generating crosswalk table..."
-    python3 ./prepare_layers/convert_crosswalk.py --original "${DATADIR}"/crosswalk_bin_T.csv --output "${DATADIR}"/crosswalk.csv
+    python3 ./prepare_layers/convert_crosswalk.py --original ./data/crosswalk_bin_T.csv --output "${DATADIR}"/crosswalk.csv
 fi
 
 # Get species data per taxa from IUCN data
