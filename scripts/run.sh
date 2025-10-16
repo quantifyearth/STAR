@@ -32,7 +32,7 @@ if [[ -n "${SLURM_JOB_ID}" ]]; then
     cd "${HOME}"/dev/star
     PROCESS_COUNT="${SLURM_JOB_CPUS_PER_NODE}"
 else
-    PROCESS_COUNT=$(nproc --all)
+    PROCESS_COUNT=$(getconf _NPROCESSORS_ONLN)
 fi
 echo "Using ${PROCESS_COUNT} threads."
 
@@ -79,7 +79,6 @@ fi
 if [[ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif || ! -f "${DATADIR}"/elevation/elevation-min-1k.tif ]]; then
     if [ ! -f "${DATADIR}"/elevation/elevation.tif ]; then
         echo "Fetching elevation map..."
-        mkdir -p "${DATADIR}"/elevation
         reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output "${DATADIR}"/elevation/elevation.tif
     fi
     if [ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif ]; then

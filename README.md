@@ -4,13 +4,53 @@ An implementation of the threat based [STAR biodiversity metric by Muir et al](h
 
 See [method.md](method.md) for a description of the methodology, or `scripts/run.sh` for how to execute the pipeline.
 
-# Running the pipeline
+## Checking out the code
 
-## Requirements
+The code is available on github, and can be checked out from there:
 
-The easiest way to run the pipeline is using the included Dockerfile to build a Docker container which will have all the dependancies installed in it.
+```shell
+$ git clone https://github.com/quantifyearth/STAR.git
+...
+$ cd STAR
+```
 
-If not, you will need:
+## Additional inputs
+
+There are some additional inputs required to run the pipeline, which should be placed in the directory you use to store the pipeline results.
+
+* crosswalk_bin_T.csv - the crosswalk table from the [Lumbierres et al 2021](https://conbio.onlinelibrary.wiley.com/doi/10.1111/cobi.13851)
+* SpeciesList_generalisedRangePolygons.csv - A list of species with generalised ranges on the IUCN Redlist.
+* BL_Species_Elevations_2023.csv (optional) - corrections to the elevation of birdlife species on the IUCN Redlist taken from the BirdLife data.
+
+The script also assumes you have a Postgres database with the IUCN Redlist database in it.
+
+## Running the pipeline
+
+There are two ways to run the pipeline. The easiest way is to use Docker if you have it available to you, as it will manage all the dependencies for you. But you can check out and run it locally if you want to also, but it requires a little more effort.
+
+### Running with Docker
+
+
+There is included a docker file, which is based on the GDAL container image, which is set up to install everything ready to use. You can build that using:
+
+```shell
+$ docker buildx build -t star .
+```
+
+You can then invoke the run script using this. You should map an external folder into the container as a place to store the intermediary data and final results, and you should provide details about the Postgres instance with the IUCN redlist:
+
+```shell
+$ docker run --rm -v /some/local/dir:/data \
+	-e DB_HOST=localhost \
+	-e DB_NAME=iucnredlist \
+	-e DB_PASSWORD=supersecretpassword \
+	-e DB_USER=postgres \
+	star ./scripts/run.sh
+```
+
+### Running without Docker
+
+If you prefer not to use Docker, you will need:
 
 * Python3 >= 3.10
 * GDAL
@@ -38,42 +78,20 @@ You will also need to install the R stats packages required for the validation s
 $ R -e "install.packages(c('lme4', 'lmerTest'), repos='https://cran.rstudio.com/')"
 ```
 
-## Additional inputs
+Before running the pipeline you will need to set several environmental variables to tell the script where to store data and where the database with the IUCN Redlist is. You can set these manually, or we recommend using a tool like [direnv](https://direnv.net).
 
-There are some additional inputs required to run the pipeline, which should be plated in the directory you use to store the pipeline results.
-
-* crosswalk_bin_T.csv - the crosswalk table from the [Lumbierres et al 2021](https://conbio.onlinelibrary.wiley.com/doi/10.1111/cobi.13851)
-* SpeciesList_generalisedRangePolygons.csv - A list of species with generalised ranges on the IUCN Redlist.
-* BL_Species_Elevations_2023.csv (optional) - corrections to the elevation of birdlife species on the IUCN Redlist taken from the BirdLife data.
-
-## Running the pipeline
-
-The easiest way to get started will be to run `scripts/run.sh` under a linux environment.
-
-### Running on Ubuntu
-
-The following extra utilities will need to be installed:
-
-* [Reclaimer](https://github.com/quantifyearth/reclaimer/) - a utility for downloading data from various primary sources.
-* [Littlejohn](https://github.com/quantifyearth/littlejohn/) - a utility to run jobs in parallel driven by a CSV file.
-
-### Running in Docker
-
-There is included a docker file, which is based on the GDAL container image, which is set up to install everything ready to use. You can build that using:
-
-```
-$ docker buildx build -t star .
+```shell
+export DATADIR=[PATH WHERE YOU WANT THE RESULTS]
+export DB_HOST=localhost
+export DB_NAME=iucnredlist
+export DB_PASSWORD=supersecretpassword
+export DB_USER=postgres
 ```
 
-You can then invoke the run script using this. You should map an external folder into the container as a place to store the intermediary data and final results, and you should provide details about the Postgres instance with the IUCN redlist:
+Once you have all that you can then run the pipeline:
 
-```
-$ docker run --rm -v /some/local/dir:/data \
-	-e DB_HOST=localhost \
-	-e DB_NAME=iucnredlist \
-	-e DB_PASSWORD=supersecretpassword \
-	-e DB_USER=postgres \
-	star ./scripts/run.sh
+```shell
+(venv) $ ./scripts/run.sh
 ```
 
 # Credits

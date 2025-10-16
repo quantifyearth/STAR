@@ -6,12 +6,11 @@ psutil
 pymer4
 pyproj
 scikit-image
-yirgacheffe
-aoh[validation]
+yirgacheffe>=1.9
+aoh[validation]>=1.0
 
+# GDAL should be installed manually to match the version of the library installed on your machine
 gdal[numpy]
-
-git+https://github.com/quantifyearth/iucn_modlib
 
 pylint
 mypy
