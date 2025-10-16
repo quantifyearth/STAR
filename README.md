@@ -6,14 +6,34 @@ See [method.md](method.md) for a description of the methodology, or `scripts/run
 
 # Running the pipeline
 
-## Checking out the code
+## Requirements
 
-This repository uses submodules, so once you have cloned it, you need to fetch the submodules:
+The easiest way to run the pipeline is using the included Dockerfile to build a Docker container which will have all the dependancies installed in it.
+
+If not, you will need:
+
+* Python3 >= 3.10
+* GDAL
+* R (required for validation)
+
+If you are using macOS please note that the default Python install that Apple ships is now several years out of date (Python 3.9, released Oct 2020) and you'll need to install a more recent version (for example, using [homebrew](https://brew.sh)).
+
+With those you should set up a Python virtual environment to install all the required packages. The one trick to this is you need to match the Python GDAL package to your installed GDAL version.
 
 ```shell
-$ git clone https://github.com/quantifyearth/star.git
-$ cd star
-$ git submodule update --init --recursive
+$ python3 -m venv ./venv
+$ . ./venv/bin/activate
+(venv) $ gdalinfo --version
+GDAL 3.11.3 "Eganville", released 2025/07/12
+(venv) $ pip install gdal[numpy]==3.11.3
+...
+(venv) $ pip install -r requirements.txt
+```
+
+You will also need to install the R stats packages required for the validation stage:
+
+```shell
+$ R -e "install.packages(c('lme4', 'lmerTest'), repos='https://cran.rstudio.com/')"
 ```
 
 ## Additional inputs
