@@ -20,7 +20,7 @@ If not, you will need:
 
 If you are using macOS please note that the default Python install that Apple ships is now several years out of date (Python 3.9, released Oct 2020) and you'll need to install a more recent version (for example, using [homebrew](https://brew.sh)).
 
-With those you should set up a Python virtual environment to install all the required packages. The one trick to this is you need to match the Python GDAL package to your installed GDAL version.
+With those you should set up a Python virtual environment to install all the required packages. The one trick to this is you need to match the Python GDAL package to your installed GDAL version. For example, on my machine I did the following:
 
 ```shell
 $ python3 -m venv ./venv
