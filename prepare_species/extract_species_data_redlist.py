@@ -16,7 +16,7 @@ REQUIRED SETUP:
      * MAMMALS
      * AMPHIBIANS
      * REPTILES
-     * BIRDS (if available)
+     * BIRDS
    - Extract the shapefiles to a known location on your computer
    - Note: Each download contains a shapefile (.shp) and associated files (.dbf, .shx, .prj)
 
@@ -81,15 +81,15 @@ logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
 
-def process_systems_from_api(assessment_df: pd.DataFrame, report: SpeciesReport) -> str:
+def process_systems_from_api(assessment: dict, report: SpeciesReport) -> str:
     """Extract and validate systems data from API response."""
     # The assessment_as_pandas() returns terrestrial, freshwater, marine as boolean columns
     systems_list = []
-    if assessment_df['terrestrial'].iloc[0]:
+    if assessment['terrestrial']:
         systems_list.append("Terrestrial")
-    if assessment_df['freshwater'].iloc[0]:
+    if assessment['freshwater']:
         systems_list.append("Freshwater")
-    if assessment_df['marine'].iloc[0]:
+    if assessment['marine']:
         systems_list.append("Marine")
 
     systems = "|".join(systems_list)
@@ -153,50 +153,39 @@ def process_species(
     5. Saves the result as a GeoJSON file
     """
 
-    id_no, scientific_name, species_gdf = species_data
+    id_no, species_gdf = species_data
+    scientific_name = species_gdf.iloc[0]['scientific_name']
 
     report = SpeciesReport(id_no, None, scientific_name)
 
-    # Parse scientific name
-    parts = scientific_name.split()
-    genus_name = parts[0]
-    species_name = parts[1] if len(parts) > 1 else ""
+    logger.info("Processing %s (%s)", id_no, scientific_name)
 
-    logger.info("Processing %s (id_no=%s)", scientific_name, id_no)
-
-    # Query API for assessment data
+    # Get assessment from API. The Redlistapi package returns the most recent assessment when you
+    # use `from_taxid`
     try:
         factory = redlistapi.AssessmentFactory(token)
-        assessment = factory.from_scientific_name(genus_name, species_name, scope='1')
+        assessment = factory.from_taxid(id_no)
         report.has_api_data = True
     except (requests.exceptions.RequestException, ValueError) as e:
-        # RequestException: Network errors, API errors (HTTPError from raise_for_status())
-        # ValueError: 'Too many positive matches' or 'No match' from from_scientific_name()
         logger.error("Failed to get API data for %s: %s", scientific_name, e)
         return report
 
-    # Get assessment data as pandas DataFrame and dict
-    try:
-        assessment_df = assessment.assessment_as_pandas()
-        # Note: redlistapi incorrectly types assessment as list, but it's actually a dict
-        assessment_dict: dict = assessment.assessment
-    except (KeyError, AttributeError, IndexError) as e:
-        # KeyError: Missing expected keys in API response
-        # AttributeError: Missing expected attributes in assessment object
-        # IndexError: Empty dataframe when accessing .iloc[0]
-        logger.error("Failed to extract assessment data for %s: %s", scientific_name, e)
-        return report
+    # Whilst you can do `assessment.assessment` to get the original data as a dict,
+    # there is a bunch of data cleaning that is done as part of `assessment_as_pandas` which
+    # is nice to have, so we call that and then covert it back to a dict for Python
+    # convenience.
+    assessment_dict = assessment.assessment_as_pandas().to_dict(orient='records')[0]
 
-    # Extract assessment metadata
-    # pylint: disable=no-member
-    # (assessment_dict is incorrectly typed as list in redlistapi but is actually dict)
-    assessment_id = assessment_dict.get('assessment_id')
-    assessment_year = assessment_df['year_published'].iloc[0]
-    category = assessment_dict.get('red_list_category', {}).get('code')
-    family_name = assessment_dict.get('taxon', {}).get('family_name')
-    possibly_extinct = assessment_dict.get('possibly_extinct', False)
-    possibly_extinct_in_the_wild = assessment_dict.get('possibly_extinct_in_the_wild', False)
-    # pylint: enable=no-member
+    try:
+        assessment_id = assessment_dict['assid']
+        assessment_year = assessment_dict['assessment_date'].year
+        category = assessment_dict['red_list_category']
+        family_name = assessment_dict['family_name']
+        possibly_extinct = assessment_dict['possibly_extinct']
+        possibly_extinct_in_the_wild = assessment_dict['possibly_extinct_in_the_wild']
+    except KeyError as exc:
+        logger.error("Failed to get data from assessment record for %s: %s", id_no, exc)
+        return report
 
     report.assessment_id = assessment_id
 
@@ -208,20 +197,20 @@ def process_species(
 
     # Only process species in threat categories
     if category not in CATEGORY_WEIGHTS:
-        logger.debug("Dropping %s: category %s not in %s", scientific_name, category, list(CATEGORY_WEIGHTS.keys()))
+        logger.debug("Dropping %s: category %s not in %s", id_no, category, list(CATEGORY_WEIGHTS.keys()))
         return report
 
     # Process systems
     try:
-        systems = process_systems_from_api(assessment_df, report)
+        systems = process_systems_from_api(assessment_dict, report)
     except ValueError as exc:
-        logger.debug("Dropping %s: %s", scientific_name, exc)
+        logger.debug("Dropping %s: %s", id_no, exc)
         return report
 
     # Process threats
     threats = process_threats_from_api(assessment_dict, report)
     if len(threats) == 0:
-        logger.debug("Dropping %s: no threats", scientific_name)
+        logger.debug("Dropping %s: no threats", id_no)
         return report
 
     # Process habitats
@@ -235,12 +224,9 @@ def process_species(
     filtered_gdf = species_gdf[species_gdf['presence'].isin(presence_filter)]
 
     if len(filtered_gdf) == 0:
-        logger.debug("Dropping %s: no geometries after presence filtering", scientific_name)
+        logger.debug("Dropping %s: no geometries after presence filtering", id_no)
         return report
 
-    report.has_geometry = True
-
-    # Union all geometries for this species
     geometries = []
     for _, row in filtered_gdf.iterrows():
         geom = row.geometry
@@ -250,8 +236,10 @@ def process_species(
             geometries.append(geom)
 
     if len(geometries) == 0:
-        logger.debug("Dropping %s: no valid geometries", scientific_name)
+        logger.debug("Dropping %s: no valid geometries", id_no)
         return report
+
+    report.has_geometry = True
 
     # Union all geometries
     if len(geometries) == 1:
@@ -312,40 +300,31 @@ def extract_data_from_shapefile(
         origin_filter: Origin codes to include (default: 1, 2, 6)
     """
 
-    # Check if path is a directory or a single shapefile
     if shapefile_path.is_dir():
-        # Find all .shp files in the directory
-        shapefiles = sorted(shapefile_path.glob("*.shp"))
+        shapefiles = list(shapefile_path.glob("*.shp"))
         if len(shapefiles) == 0:
             raise ValueError(f"No shapefiles found in directory: {shapefile_path}")
 
         logger.info("Found %d shapefile(s) in %s", len(shapefiles), shapefile_path)
 
-        # Load and concatenate all shapefiles
         gdfs = []
         for shp_file in shapefiles:
-            logger.info("Reading shapefile: %s", shp_file.name)
             gdf_part = gpd.read_file(shp_file)
-            logger.info("  Loaded %d rows from %s", len(gdf_part), shp_file.name)
             gdfs.append(gdf_part)
 
-        # Concatenate all dataframes
         gdf = pd.concat(gdfs, ignore_index=True)
         logger.info("Combined %d total rows from %d shapefile(s)", len(gdf), len(shapefiles))
     else:
-        # Single shapefile
-        logger.info("Reading shapefile: %s", shapefile_path)
         gdf = gpd.read_file(shapefile_path)
         logger.info("Loaded %d rows from shapefile", len(gdf))
 
-    logger.info("Columns: %s", gdf.columns.tolist())
 
     # Normalise column names (shapefiles may have different conventions)
     column_map = {}
     for col in gdf.columns:
         col_lower = col.lower()
         if col_lower in ['binomial', 'sci_name', 'scientific_name']:
-            column_map[col] = 'binomial'
+            column_map[col] = 'scientific_name'
         elif col_lower in ['id_no', 'sisid', 'sis_id']:
             column_map[col] = 'id_no'
         elif col_lower in ['presence', 'pres']:
@@ -361,28 +340,21 @@ def extract_data_from_shapefile(
         gdf = gdf[gdf['origin'].isin(origin_filter)]
         logger.info("Filtered by origin %s: %d -> %d rows", origin_filter, before, len(gdf))
     else:
-        logger.warning("No 'origin' column found in shapefile - cannot filter by origin")
+        raise ValueError("No 'origin' column found in shapefile - cannot filter by origin")
 
-    # Check for presence column (needed later for per-species filtering)
     if 'presence' not in gdf.columns:
-        logger.error("No 'presence' column found in shapefile - cannot filter by presence")
         raise ValueError("Shapefile must have a 'presence' column")
 
-    # Load excludes list
     excludes = set()
-    if excludes_path and excludes_path.exists():
+    if excludes_path:
         try:
             df = pd.read_csv(excludes_path)
             excludes = set(df.id_no.unique())
             logger.info("Excluding %d species from %s", len(excludes), excludes_path)
-        except (pd.errors.ParserError, KeyError, ValueError) as e:
-            # ParserError: CSV parsing failed
-            # KeyError: 'id_no' column not found
-            # ValueError: Invalid data in id_no column
-            logger.warning("Could not load excludes file: %s", e)
+        except (FileDoesNotExist, pd.errors.ParserError, KeyError, ValueError) as e:
+            raise ValueError("Could not load excludes file: %s", e)
 
-    # Filter out excluded species
-    if excludes and 'id_no' in gdf.columns:
+    if excludes:
         before = len(gdf)
         gdf = gdf[~gdf['id_no'].isin(excludes)]
         logger.info("After excluding species: %d -> %d shapes", before, len(gdf))
@@ -391,20 +363,12 @@ def extract_data_from_shapefile(
     # The shapefile has multiple rows per species (one per range polygon)
     # We'll pass all rows for each species to the processing function so it can
     # apply the correct presence filter based on possibly_extinct status
-    logger.info("Grouping %d rows by species", len(gdf))
-
     species_groups = []
     for id_no, group in gdf.groupby('id_no'):
-        # Get species name from first row (all rows for a species have the same name)
-        scientific_name = group.iloc[0]['binomial']
-
-        # Pass the entire group (all rows for this species) to the processing function
-        # The function will filter by presence and union geometries after checking possibly_extinct
-        species_groups.append((id_no, scientific_name, group))
+        species_groups.append((id_no, group))
 
     logger.info("Grouped into %d unique species", len(species_groups))
 
-    # Process in current era only (not historic)
     era = "current"
     era_output_directory_path = output_directory_path / era
 
@@ -424,8 +388,11 @@ def extract_data_from_shapefile(
             ),
             species_groups
         )
+    # reports = [
+    #     process_species(token, class_name, era_output_directory_path, target_projection, presence_filter, species)
+    #     for species in species_groups
+    # ]
 
-    # Save report
     reports_df = pd.DataFrame(
         [x.as_row() for x in reports],
         columns=SpeciesReport.REPORT_COLUMNS
@@ -436,7 +403,6 @@ def extract_data_from_shapefile(
 
     logger.info("Saved report to %s", era_output_directory_path / 'report.csv')
 
-    # Print summary
     total = len(reports)
     with_files = reports_df['filename'].notna().sum()
     logger.info("Successfully processed %d/%d species", with_files, total)
@@ -499,11 +465,11 @@ def main() -> None:
     args = parser.parse_args()
 
     # Get API token
-    token = os.getenv('IUCN_REDLIST_TOKEN')
+    token = os.getenv('REDLIST_API_TOKEN')
     if not token:
-        print("ERROR: IUCN_REDLIST_TOKEN environment variable not set")
+        print("ERROR: REDLIST_API_TOKEN environment variable not set")
         print("Get a token from: https://api.iucnredlist.org/users/sign_up")
-        print("Then set it with: export IUCN_REDLIST_TOKEN='your_token_here'")
+        print("Then set it with: export REDLIST_API_TOKEN='your_token_here'")
         sys.exit(1)
 
     # Parse presence and origin filters
