@@ -81,7 +81,7 @@ logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
 
-def process_systems_from_api(assessment: dict, report: SpeciesReport) -> str:
+def process_systems_from_api(assessment: dict, report: SpeciesReport) -> list:
     """Extract and validate systems data from API response."""
     # The assessment_as_pandas() returns terrestrial, freshwater, marine as boolean columns
     systems_list = []
@@ -93,7 +93,7 @@ def process_systems_from_api(assessment: dict, report: SpeciesReport) -> str:
         systems_list.append("Marine")
 
     systems = "|".join(systems_list)
-    return process_systems([[systems]], report)
+    return process_systems([(systems,)], report)
 
 def process_threats_from_api(assessment: dict, report: SpeciesReport) -> list:
     """Extract and process threat data from API, applying STAR weighting."""
@@ -351,8 +351,8 @@ def extract_data_from_shapefile(
             df = pd.read_csv(excludes_path)
             excludes = set(df.id_no.unique())
             logger.info("Excluding %d species from %s", len(excludes), excludes_path)
-        except (FileDoesNotExist, pd.errors.ParserError, KeyError, ValueError) as e:
-            raise ValueError("Could not load excludes file: %s", e)
+        except (FileNotFoundError, pd.errors.ParserError, KeyError, ValueError) as exc:
+            raise ValueError(f"Could not load excludes file: {excludes_path}") from exc
 
     if excludes:
         before = len(gdf)

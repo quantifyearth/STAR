@@ -16,3 +16,4 @@ gdal[numpy]
 pylint
 mypy
 pytest
+types-requests
