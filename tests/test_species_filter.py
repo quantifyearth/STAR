@@ -2,7 +2,7 @@ import pytest
 import postgis
 import shapely
 
-from prepare_species.extract_species_data_psql import process_habitats, process_geometries, \
+from prepare_species.common import process_habitats, process_geometries, \
     process_threats, SpeciesReport
 
 def test_empty_report() -> None:

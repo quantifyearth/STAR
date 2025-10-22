@@ -29,7 +29,6 @@ There are two ways to run the pipeline. The easiest way is to use Docker if you 
 
 ### Running with Docker
 
-
 There is included a docker file, which is based on the GDAL container image, which is set up to install everything ready to use. You can build that using:
 
 ```shell
@@ -64,9 +63,7 @@ With those you should set up a Python virtual environment to install all the req
 ```shell
 $ python3 -m venv ./venv
 $ . ./venv/bin/activate
-(venv) $ gdalinfo --version
-GDAL 3.11.3 "Eganville", released 2025/07/12
-(venv) $ pip install gdal[numpy]==3.11.3
+(venv) $ pip install gdal[numpy]==`gdal-config --version`
 ...
 (venv) $ pip install -r requirements.txt
 ```

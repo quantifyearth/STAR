@@ -5,6 +5,7 @@ from typing import Any, Optional
 import aoh
 import geopandas as gpd
 import pyproj
+import shapely
 
 # To match the FABDEM elevation map we use
 # different range min/max/separation
@@ -109,6 +110,37 @@ class SpeciesReport:
 
     def as_row(self) -> list:
         return [self.info[k] for k in self.REPORT_COLUMNS]
+
+def process_geometries(
+    geometries_data: list[tuple[shapely.Geometry]],
+    report: SpeciesReport,
+) -> shapely.Geometry:
+    if len(geometries_data) == 0:
+        raise ValueError("No geometries in DB")
+    report.has_geometries = True
+
+    geometry = None
+    for geometry_row in geometries_data:
+        assert len(geometry_row) == 1
+        row_geometry = geometry_row[0]
+        if row_geometry is None:
+            continue
+
+        grange = shapely.normalize(shapely.from_wkb(row_geometry.to_ewkb()))
+        if grange.area == 0.0:
+            continue
+
+        if geometry is None:
+            geometry = grange
+        else:
+            geometry = shapely.union(geometry, grange)
+
+    if geometry is None:
+        raise ValueError("None geometry data in DB")
+    report.keeps_geometries = True
+
+    return geometry
+
 
 def process_systems(
     systems_data: list[tuple],

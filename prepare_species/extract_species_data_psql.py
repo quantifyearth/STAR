@@ -12,7 +12,6 @@ from typing import Optional
 import geopandas as gpd
 import pandas as pd
 import psycopg2
-import shapely
 from postgis.psycopg import register
 
 from common import (
@@ -21,6 +20,7 @@ from common import (
     process_habitats,
     process_threats,
     process_systems,
+    process_geometries,
     tidy_reproject_save,
     SpeciesReport,
 )
@@ -113,36 +113,6 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_CONFIG = (
 	f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
-
-def process_geometries(
-    geometries_data: list[tuple[int, shapely.Geometry]],
-    report: SpeciesReport,
-) -> shapely.Geometry:
-    if len(geometries_data) == 0:
-        raise ValueError("No geometries in DB")
-    report.has_geometries = True
-
-    geometry = None
-    for geometry_row in geometries_data:
-        assert len(geometry_row) == 1
-        row_geometry = geometry_row[0]
-        if row_geometry is None:
-            continue
-
-        grange = shapely.normalize(shapely.from_wkb(row_geometry.to_ewkb()))
-        if grange.area == 0.0:
-            continue
-
-        if geometry is None:
-            geometry = grange
-        else:
-            geometry = shapely.union(geometry, grange)
-
-    if geometry is None:
-        raise ValueError("None geometry data in DB")
-    report.keeps_geometries = True
-
-    return geometry
 
 def process_row(
     class_name: str,

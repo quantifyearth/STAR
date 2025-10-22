@@ -10,22 +10,22 @@ REQUIRED SETUP:
 ==============
 
 1. Download IUCN Red List Spatial Data:
-   - Go to: https://www.iucnredlist.org/resources/spatial-data-download
-   - Create an account (free for non-commercial use)
-   - Download the shapefile for your target taxonomic group(s):
-     * MAMMALS
-     * AMPHIBIANS
-     * REPTILES
-     * BIRDS
-   - Extract the shapefiles to a known location on your computer
-   - Note: Each download contains a shapefile (.shp) and associated files (.dbf, .shx, .prj)
+    - Go to: https://www.iucnredlist.org/resources/spatial-data-download
+    - Create an account (free for non-commercial use)
+    - Download the shapefile for your target taxonomic group(s):
+      * MAMMALS
+      * AMPHIBIANS
+      * REPTILES
+      * BIRDS
+    - Extract the shapefiles to a known location on your computer
+    - Note: Each download contains a shapefile (.shp) and associated files (.dbf, .shx, .prj)
 
 2. Get an IUCN Red List API Token:
-   - Go to: https://api.iucnredlist.org/users/sign_up
-   - Sign up for a free API account
-   - You'll receive an API token via email
-   - Set the token as an environment variable:
-     export IUCN_REDLIST_TOKEN="your_token_here"
+    - Go to: https://api.iucnredlist.org/users/sign_up
+    - Sign up for a free API account
+    - You'll receive an API token via email
+    - Set the token as an environment variable:
+      export IUCN_REDLIST_TOKEN="your_token_here"
 
 USAGE:
 ======
@@ -70,6 +70,7 @@ from common import (
     CATEGORY_WEIGHTS,
     COLUMNS,
     process_habitats,
+    process_geometries,
     process_threats,
     process_systems,
     tidy_reproject_save,
@@ -116,6 +117,14 @@ def process_habitats_from_api(assessment: dict, report: SpeciesReport) -> set:
     codes_list = [habitat.get('code', '').replace('_', '.') for habitat in habitats_data]
     codes = [['|'.join(codes_list)]]
     return process_habitats(codes, report)
+
+def process_geometries_from_api(geometries: pd.DataFrame, report: SpeciesReport) -> shapely.Geometry:
+    # Reworking data to look like database data for common code
+    reformated_geometries = []
+    for _, row in geometries.iterrows():
+        geom = row.geometry
+        reformated_geometries.append((geom,))
+    return process_geometries(reformated_geometries, report)
 
 def get_elevation_from_api(assessment: dict, report: SpeciesReport) -> tuple:
     """Extract elevation limits from API response."""
@@ -223,29 +232,7 @@ def process_species(
     # Filter by presence codes (now that we know if species is possibly extinct)
     filtered_gdf = species_gdf[species_gdf['presence'].isin(presence_filter)]
 
-    if len(filtered_gdf) == 0:
-        logger.debug("Dropping %s: no geometries after presence filtering", id_no)
-        return report
-
-    geometries = []
-    for _, row in filtered_gdf.iterrows():
-        geom = row.geometry
-        if geom is not None and not geom.is_empty:
-            if not geom.is_valid:
-                geom = geom.buffer(0)
-            geometries.append(geom)
-
-    if len(geometries) == 0:
-        logger.debug("Dropping %s: no valid geometries", id_no)
-        return report
-
-    report.has_geometry = True
-
-    # Union all geometries
-    if len(geometries) == 1:
-        geometry = geometries[0]
-    else:
-        geometry = shapely.union_all(geometries)
+    geometry = process_geometries_from_api(filtered_gdf, report)
 
     # Create GeoDataFrame with all data
     gdf = gpd.GeoDataFrame(
