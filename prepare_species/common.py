@@ -75,6 +75,7 @@ class SpeciesReport:
         "id_no",
         "assessment_id",
         "scientific_name",
+        "has_api_data",
         "possibly_extinct",
         "has_systems",
         "not_terrestrial_system",
@@ -112,7 +113,7 @@ class SpeciesReport:
         return [self.info[k] for k in self.REPORT_COLUMNS]
 
 def process_geometries(
-    geometries_data: list[tuple[shapely.Geometry]],
+    geometries_data: list[shapely.Geometry],
     report: SpeciesReport,
 ) -> shapely.Geometry:
     if len(geometries_data) == 0:
@@ -120,13 +121,8 @@ def process_geometries(
     report.has_geometries = True
 
     geometry = None
-    for geometry_row in geometries_data:
-        assert len(geometry_row) == 1
-        row_geometry = geometry_row[0]
-        if row_geometry is None:
-            continue
-
-        grange = shapely.normalize(shapely.from_wkb(row_geometry.to_ewkb()))
+    for geometry in geometries_data:
+        grange = shapely.normalize(geometry)
         if grange.area == 0.0:
             continue
 

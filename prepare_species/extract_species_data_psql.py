@@ -130,6 +130,7 @@ def process_row(
         elevation_lower, elevation_upper, scientific_name, family_name, category = row
 
     report = SpeciesReport(id_no, assessment_id, scientific_name)
+    report.has_api_data = True
 
     # From Chess STAR report
     if possibly_extinct or possibly_extinct_in_the_wild:
@@ -159,8 +160,12 @@ def process_row(
 
     cursor.execute(GEOMETRY_STATEMENT, (assessment_id, presence))
     geometries_data = cursor.fetchall()
+    cleaned_geometries = [
+        shapely.from_wkb(row_geometry[0].to_ewkb()
+        for row_geometry in geometries if row_geometry[0] is not None
+    ]
     try:
-        geometry = process_geometries(geometries_data, report)
+        geometry = process_geometries(cleaned_geometries, report)
     except ValueError as _exc:
         return report
 

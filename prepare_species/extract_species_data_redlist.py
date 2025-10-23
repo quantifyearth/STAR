@@ -55,8 +55,6 @@ import json
 import logging
 import os
 import sys
-from functools import partial
-from multiprocessing import Pool
 from pathlib import Path
 from typing import Optional
 
@@ -82,23 +80,15 @@ logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
 
-def process_systems_from_api(assessment: dict, report: SpeciesReport) -> list:
+def process_systems_from_api(assessment: redlistapi.Assessment, report: SpeciesReport) -> list:
     """Extract and validate systems data from API response."""
-    # The assessment_as_pandas() returns terrestrial, freshwater, marine as boolean columns
-    systems_list = []
-    if assessment['terrestrial']:
-        systems_list.append("Terrestrial")
-    if assessment['freshwater']:
-        systems_list.append("Freshwater")
-    if assessment['marine']:
-        systems_list.append("Marine")
-
-    systems = "|".join(systems_list)
+    systems_data = assessment.systems_as_pandas().to_dict(orient='records')
+    systems = "|".join([x['description'] for x in systems_data])
     return process_systems([(systems,)], report)
 
-def process_threats_from_api(assessment: dict, report: SpeciesReport) -> list:
+def process_threats_from_api(assessment: redlistapi.Assessment, report: SpeciesReport) -> list:
     """Extract and process threat data from API, applying STAR weighting."""
-    threats_data = assessment.get('threats', [])
+    threats_data = assessment.threats_as_pandas().to_dict(orient='records')
 
     # API uses underscores (e.g., "2_3_2") but we need dots (e.g., "2.3.2") for consistency with DB format
     threats = [(
@@ -109,9 +99,8 @@ def process_threats_from_api(assessment: dict, report: SpeciesReport) -> list:
 
     return process_threats(threats, report)
 
-def process_habitats_from_api(assessment: dict, report: SpeciesReport) -> set:
-    """Extract habitat codes from API response."""
-    habitats_data = assessment.get('habitats', [])
+def process_habitats_from_api(assessment: redlistapi.Assessment, report: SpeciesReport) -> set:
+    habitats_data = assessment.habitats_as_pandas().to_dict(orient='records')
     # API uses underscores (e.g., "1_5") but we need dots (e.g., "1.5") for consistency with DB format
     # Convert codes and join with pipe separator to match DB format
     codes_list = [habitat.get('code', '').replace('_', '.') for habitat in habitats_data]
@@ -123,7 +112,7 @@ def process_geometries_from_api(geometries: pd.DataFrame, report: SpeciesReport)
     reformated_geometries = []
     for _, row in geometries.iterrows():
         geom = row.geometry
-        reformated_geometries.append((geom,))
+        reformated_geometries.append(geom)
     return process_geometries(reformated_geometries, report)
 
 def get_elevation_from_api(assessment: dict, report: SpeciesReport) -> tuple:
@@ -173,10 +162,14 @@ def process_species(
     # use `from_taxid`
     try:
         factory = redlistapi.AssessmentFactory(token)
-        assessment = factory.from_taxid(id_no)
+        assessment = factory.from_taxid(id_no, scope='1')
         report.has_api_data = True
-    except (requests.exceptions.RequestException, ValueError) as e:
-        logger.error("Failed to get API data for %s: %s", scientific_name, e)
+    except (ValueError) as exc:
+        logger.error("Failed to get API data for %s: %s", scientific_name, exc)
+        raise
+        return report
+    except (requests.exceptions.RequestException) as exc:
+        logger.error("Netowrk error: %s", scientific_name, exc)
         return report
 
     # Whilst you can do `assessment.assessment` to get the original data as a dict,
@@ -192,8 +185,16 @@ def process_species(
         family_name = assessment_dict['family_name']
         possibly_extinct = assessment_dict['possibly_extinct']
         possibly_extinct_in_the_wild = assessment_dict['possibly_extinct_in_the_wild']
+        infrarank = assessment_dict['infrarank']
     except KeyError as exc:
         logger.error("Failed to get data from assessment record for %s: %s", id_no, exc)
+        return report
+
+    # Remove subspecies and non-global assessments. This happens in the original SQL in the Postgres
+    # version. Note that the "True" is because the redlistapi package casts this to a string with
+    # the values of "True", "False", and "None".
+    if infrarank == "True":
+        logger.debug("Dropping %s: infrarank not none: %s", id_no, infrarank, infrarank.__class__)
         return report
 
     report.assessment_id = assessment_id
@@ -211,19 +212,23 @@ def process_species(
 
     # Process systems
     try:
-        systems = process_systems_from_api(assessment_dict, report)
+        systems = process_systems_from_api(assessment, report)
     except ValueError as exc:
         logger.debug("Dropping %s: %s", id_no, exc)
         return report
 
     # Process threats
-    threats = process_threats_from_api(assessment_dict, report)
+    threats = process_threats_from_api(assessment, report)
     if len(threats) == 0:
         logger.debug("Dropping %s: no threats", id_no)
         return report
 
     # Process habitats
-    habitats = process_habitats_from_api(assessment_dict, report)
+    try:
+        habitats = process_habitats_from_api(assessment, report)
+    except ValueError as exc:
+        logger.debug("Dropping %s: %s", id_no, exc)
+        return report
 
     # Get elevation
     elevation_lower, elevation_upper = get_elevation_from_api(assessment_dict, report)
@@ -232,7 +237,11 @@ def process_species(
     # Filter by presence codes (now that we know if species is possibly extinct)
     filtered_gdf = species_gdf[species_gdf['presence'].isin(presence_filter)]
 
-    geometry = process_geometries_from_api(filtered_gdf, report)
+    try:
+        geometry = process_geometries_from_api(filtered_gdf, report)
+    except ValueError as exc:
+        logger.debug("Dropping %s: %s", id_no, exc)
+        return report
 
     # Create GeoDataFrame with all data
     gdf = gpd.GeoDataFrame(
@@ -361,24 +370,10 @@ def extract_data_from_shapefile(
 
     logger.info("Processing %d species for %s in %s scenario", len(species_groups), class_name, era)
 
-    # Process species - using multiprocessing
-    # Note: We use fewer processes than the DB version because we're making API calls
-    with Pool(processes=5) as pool:
-        reports = pool.map(
-            partial(
-                process_species,
-                token,
-                class_name,
-                era_output_directory_path,
-                target_projection,
-                presence_filter,
-            ),
-            species_groups
-        )
-    # reports = [
-    #     process_species(token, class_name, era_output_directory_path, target_projection, presence_filter, species)
-    #     for species in species_groups
-    # ]
+    reports = [
+        process_species(token, class_name, era_output_directory_path, target_projection, presence_filter, species)
+        for species in species_groups
+    ]
 
     reports_df = pd.DataFrame(
         [x.as_row() for x in reports],
