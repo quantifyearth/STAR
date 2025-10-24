@@ -161,7 +161,7 @@ def process_row(
     cursor.execute(GEOMETRY_STATEMENT, (assessment_id, presence))
     geometries_data = cursor.fetchall()
     cleaned_geometries = [
-        shapely.from_wkb(row_geometry[0].to_ewkb()
+        shapely.from_wkb(row_geometry[0].to_ewkb())
         for row_geometry in geometries if row_geometry[0] is not None
     ]
     try:

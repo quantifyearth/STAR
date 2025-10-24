@@ -166,11 +166,10 @@ def process_species(
         assessment = factory.from_taxid(id_no, scope='1')
         report.has_api_data = True
     except (ValueError) as exc:
-        logger.error("Failed to get API data for %s: %s", scientific_name, exc)
-        raise
+        logger.error("Failed to get API data for %s: %s", id_no, exc)
         return report
     except (requests.exceptions.RequestException) as exc:
-        logger.error("Netowrk error: %s", scientific_name, exc)
+        logger.error("Network error for %s: %s", id_no, exc)
         return report
 
     # Whilst you can do `assessment.assessment` to get the original data as a dict,
@@ -383,7 +382,14 @@ def extract_data_from_shapefile(
             time.sleep(rate_limit - time_since_last_call)
         last = now
 
-        result = process_species(token, class_name, era_output_directory_path, target_projection, presence_filter, species)
+        result = process_species(
+            token,
+            class_name,
+            era_output_directory_path,
+            target_projection,
+            presence_filter,
+            species
+        )
         reports.append(result)
 
     reports_df = pd.DataFrame(
