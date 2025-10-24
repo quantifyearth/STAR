@@ -12,6 +12,7 @@ from typing import Optional
 import geopandas as gpd
 import pandas as pd
 import psycopg2
+import shapely
 from postgis.psycopg import register
 
 from common import (
@@ -162,7 +163,7 @@ def process_row(
     geometries_data = cursor.fetchall()
     cleaned_geometries = [
         shapely.from_wkb(row_geometry[0].to_ewkb())
-        for row_geometry in geometries if row_geometry[0] is not None
+        for row_geometry in geometries_data if row_geometry[0] is not None
     ]
     try:
         geometry = process_geometries(cleaned_geometries, report)
