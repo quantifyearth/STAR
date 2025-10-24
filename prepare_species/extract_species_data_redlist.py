@@ -55,6 +55,7 @@ import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -95,7 +96,7 @@ def process_threats_from_api(assessment: redlistapi.Assessment, report: SpeciesR
         threat.get('code', '').replace('_', '.'),
         threat.get('scope'),
         threat.get('severity'),
-    ) for threat in threats_data]
+    ) for threat in threats_data if threat.get('timing') != 'Past, Unlikely to Return']
 
     return process_threats(threats, report)
 
@@ -281,6 +282,7 @@ def extract_data_from_shapefile(
     target_projection: Optional[str],
     presence_filter: tuple[int, ...],
     origin_filter: tuple[int, ...],
+    rate_limit: float,
 ) -> None:
     """
     Extract species data from IUCN shapefile(s) combined with API data.
@@ -370,10 +372,19 @@ def extract_data_from_shapefile(
 
     logger.info("Processing %d species for %s in %s scenario", len(species_groups), class_name, era)
 
-    reports = [
-        process_species(token, class_name, era_output_directory_path, target_projection, presence_filter, species)
-        for species in species_groups
-    ]
+    reports = []
+    last = 0.0
+    for species in species_groups:
+
+        # The IUCN Redlist API v4 us currently rate limited to 120 requests per minute
+        now = time.time()
+        time_since_last_call = now - last
+        if time_since_last_call < rate_limit:
+            time.sleep(rate_limit - time_since_last_call)
+        last = now
+
+        result = process_species(token, class_name, era_output_directory_path, target_projection, presence_filter, species)
+        reports.append(result)
 
     reports_df = pd.DataFrame(
         [x.as_row() for x in reports],
@@ -443,6 +454,12 @@ def main() -> None:
         help="Comma-separated origin codes to include (default: 1,2,6)",
         default="1,2,6",
     )
+    parser.add_argument(
+        '--rate_limit',
+        type=float,
+        help="Time between Redlist API requests (default: 0.5)",
+        default=0.5,
+    )
 
     args = parser.parse_args()
 
@@ -480,6 +497,7 @@ def main() -> None:
         args.target_projection,
         presence_filter,
         origin_filter,
+        args.rate_limit,
     )
 
 
