@@ -194,7 +194,7 @@ def process_species(
     # version. Note that the "True" is because the redlistapi package casts this to a string with
     # the values of "True", "False", and "None".
     if infrarank == "True":
-        logger.debug("Dropping %s: infrarank not none: %s", id_no, infrarank, infrarank.__class__)
+        logger.debug("Dropping %s: infrarank not none: %s", id_no, infrarank)
         return report
 
     report.assessment_id = assessment_id
