@@ -121,8 +121,8 @@ def process_geometries(
     report.has_geometries = True
 
     geometry = None
-    for geometry in geometries_data:
-        grange = shapely.normalize(geometry)
+    for geom in geometries_data:
+        grange = shapely.normalize(geom)
         if grange.area == 0.0:
             continue
 

@@ -65,33 +65,47 @@ def test_empty_geometry_list():
     assert not report.keeps_geometries
 
 def test_simple_resident_species_geometry_filter_point():
-    geoemetries_data = [
+    geometries_data = [
         (postgis.Geometry.from_ewkb("000000000140000000000000004010000000000000"),),
     ]
+    cleaned_geometries = [
+        shapely.from_wkb(row_geometry[0].to_ewkb())
+        for row_geometry in geometries_data if row_geometry[0] is not None
+    ]
+    print(cleaned_geometries)
     report = SpeciesReport(1, 2, "name")
     with pytest.raises(ValueError):
-        _ = process_geometries(geoemetries_data, report)
+        r = process_geometries(cleaned_geometries, report)
+        print(r)
     assert report.has_geometries
     assert not report.keeps_geometries
 
 def test_simple_resident_species_geometry_filter_polygon():
-    geoemetries_data = [
+    geometries_data = [
         (postgis.Geometry.from_ewkb("0103000000010000000400000000000000000000000000000000000000000000000000F03F000000000000F03F9A9999999999B93F000000000000F03F00000000000000000000000000000000"),), # pylint: disable=C0301
     ]
+    cleaned_geometries = [
+        shapely.from_wkb(row_geometry[0].to_ewkb())
+        for row_geometry in geometries_data if row_geometry[0] is not None
+    ]
     report = SpeciesReport(1, 2, "name")
-    res = process_geometries(geoemetries_data, report)
+    res = process_geometries(cleaned_geometries, report)
 
     assert res == shapely.Polygon([(0.0, 0.0), (0.1, 1.0), (1.0, 1.0), (0.0, 0.0)])
     assert report.has_geometries
     assert report.keeps_geometries
 
 def test_simple_migratory_species_geometry_filter():
-    geoemetries_data = [
+    geometries_data = [
         (postgis.Geometry.from_ewkb("0103000000010000000400000000000000000000000000000000000000000000000000F03F000000000000F03F9A9999999999B93F000000000000F03F00000000000000000000000000000000"),), # pylint: disable=C0301
         (postgis.Geometry.from_ewkb("0103000000010000000400000000000000000000000000000000000000000000000000F03F000000000000F03F9A9999999999B93F000000000000F03F00000000000000000000000000000000"),), # pylint: disable=C0301
     ]
+    cleaned_geometries = [
+        shapely.from_wkb(row_geometry[0].to_ewkb())
+        for row_geometry in geometries_data if row_geometry[0] is not None
+    ]
     report = SpeciesReport(1, 2, "name")
-    res = process_geometries(geoemetries_data, report)
+    res = process_geometries(cleaned_geometries, report)
     assert res == shapely.Polygon([(0.1, 1.0), (1.0, 1.0), (0.0, 0.0), (0.1, 1.0)])
     assert report.has_geometries
     assert report.keeps_geometries
