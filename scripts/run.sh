@@ -133,6 +133,18 @@ aoh-collate-data --aoh_results "${DATADIR}"/aohs/current/ \
 echo "Calculating model validation..."
 aoh-validate-prevalence --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
                         --output "${DATADIR}"/validation/model_validation.csv
+for TAXA in "${TAXALIST[@]}"
+do
+    echo "Fetching GBIF data for ${TAXA}..."
+    aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
+                        --taxa "${TAXA}" \
+                        --output_dir "${DATADIR}"/validation/occurrences/"${TAXA}"
+    echo "Validating occurrences for ${TAXA}..."
+    aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
+                             --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
+                             --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
+                             --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
+done
 
 # Threats
 echo "Generating threat task list..."

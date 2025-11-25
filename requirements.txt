@@ -7,7 +7,7 @@ pymer4
 pyproj
 scikit-image
 redlistapi
-yirgacheffe>=1.9
+yirgacheffe>=1.10
 aoh[validation]>=1.0
 
 # GDAL should be installed manually to match the version of the library installed on your machine
