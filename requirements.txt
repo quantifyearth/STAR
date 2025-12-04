@@ -7,6 +7,7 @@ pymer4
 pyproj
 scikit-image
 redlistapi
+boto3
 yirgacheffe>=1.9
 aoh[validation]>=1.0
 

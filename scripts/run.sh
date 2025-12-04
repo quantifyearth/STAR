@@ -83,11 +83,11 @@ if [[ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif || ! -f "${DATADIR}"/elev
     fi
     if [ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif ]; then
         echo "Generating elevation max layer..."
-        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 "${DATADIR}"/elevation/elevation.tif "${DATADIR}"/elevation/elevation-max-1k.tif
+        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -tap -co COMPRESS=LZW -wo NUM_THREADS=40 "${DATADIR}"/elevation/elevation.tif "${DATADIR}"/elevation/elevation-max-1k.tif
     fi
     if [ ! -f "${DATADIR}"/elevation/elevation-min-1k.tif ]; then
         echo "Generating elevation min layer..."
-        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -co COMPRESS=LZW -wo NUM_THREADS=40 "${DATADIR}"/elevation/elevation.tif "${DATADIR}"/elevation/elevation-min-1k.tif
+        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -tap -co COMPRESS=LZW -wo NUM_THREADS=40 "${DATADIR}"/elevation/elevation.tif "${DATADIR}"/elevation/elevation-min-1k.tif
     fi
 fi
 
