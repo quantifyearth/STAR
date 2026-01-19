@@ -50,6 +50,10 @@ def convert_crosswalk(
             for code in codes:
                 res.append([hab, code])
 
+    # This addition is for the islands correction layer, which will
+    # be added as an effective lcc_0.tif
+    res.append(["islands", "0"])
+
     df = pd.DataFrame(res, columns=["code", "value"])
     df.to_csv(output_path, index=False)
 

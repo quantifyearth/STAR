@@ -63,32 +63,20 @@ if [ ! -d "${DATADIR}"/habitat_layers ]; then
 
     echo "Processing habitat map..."
     aoh-habitat-process --habitat "${DATADIR}"/habitat/raw.tif \
-                        --scale 1000.0 \
+                        --scale 992.292720200000133 \
                         --projection "ESRI:54009" \
                         --output "${DATADIR}"/tmp_habitat_layers/current
     mv "${DATADIR}"/tmp_habitat_layers "${DATADIR}"/habitat_layers
 fi
 
-if [ ! -d "${DATADIR}"/masks ]; then
-    echo "Processing masks..."
-    python3 ./prepare_layers/make_masks.py --habitat_layers "${DATADIR}"/habitat_layers/current \
-                                        --output_directory "${DATADIR}"/masks
+if [ ! -f "${DATADIR}"/habitat_layers/current/lcc_0.tif ]; then
+    cp "${DATADIR}/Zenodo/MissingLandcover_1km_cover.tif" "${DATADIR}"/habitat_layers/current/lcc_0.tif
 fi
 
-# Fetch and prepare the elevation layers
-if [[ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif || ! -f "${DATADIR}"/elevation/elevation-min-1k.tif ]]; then
-    if [ ! -f "${DATADIR}"/elevation/elevation.tif ]; then
-        echo "Fetching elevation map..."
-        reclaimer zenodo --zenodo_id 5719984  --filename dem-100m-esri54017.tif --output "${DATADIR}"/elevation/elevation.tif
-    fi
-    if [ ! -f "${DATADIR}"/elevation/elevation-max-1k.tif ]; then
-        echo "Generating elevation max layer..."
-        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r max -co COMPRESS=LZW -wo NUM_THREADS=40 "${DATADIR}"/elevation/elevation.tif "${DATADIR}"/elevation/elevation-max-1k.tif
-    fi
-    if [ ! -f "${DATADIR}"/elevation/elevation-min-1k.tif ]; then
-        echo "Generating elevation min layer..."
-        gdalwarp -t_srs ESRI:54009 -tr 1000 -1000 -r min -co COMPRESS=LZW -wo NUM_THREADS=40 "${DATADIR}"/elevation/elevation.tif "${DATADIR}"/elevation/elevation-min-1k.tif
-    fi
+if [ ! -d "${DATADIR}"/masks ]; then
+    echo "Processing masks..."
+    python3 ./prepare_layers/remove_nans_from_mask.py --original "${DATADIR}"/Zenodo/CGLS100Inland_withGADMIslands.tif \
+                                                      --output "${DATADIR}"/masks/CGLS100Inland_withGADMIslands.tif
 fi
 
 # Generate the crosswalk table
@@ -118,13 +106,13 @@ echo "Generating AoHs..."
 littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/aohbatch.csv "${VIRTUAL_ENV}"/bin/aoh-calc
 
 # Calculate predictors from AoHs
-echo "Generating species richness..."
-aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
-                     --output "${DATADIR}"/summaries/species_richness.tif
-echo "Generating endemism..."
-aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
-             --species_richness "${DATADIR}"/summaries/species_richness.tif \
-             --output "${DATADIR}"/summaries/endemism.tif
+# echo "Generating species richness..."
+# aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
+                #      --output "${DATADIR}"/summaries/species_richness.tif
+# echo "Generating endemism..."
+# aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
+             # --species_richness "${DATADIR}"/summaries/species_richness.tif \
+             # --output "${DATADIR}"/summaries/endemism.tif
 
 # Aoh Validation
 echo "Collating validation data..."
@@ -133,18 +121,18 @@ aoh-collate-data --aoh_results "${DATADIR}"/aohs/current/ \
 echo "Calculating model validation..."
 aoh-validate-prevalence --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
                         --output "${DATADIR}"/validation/model_validation.csv
-for TAXA in "${TAXALIST[@]}"
-do
-    echo "Fetching GBIF data for ${TAXA}..."
-    aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
-                        --taxa "${TAXA}" \
-                        --output_dir "${DATADIR}"/validation/occurrences/"${TAXA}"
-    echo "Validating occurrences for ${TAXA}..."
-    aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
-                             --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
-                             --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
-                             --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
-done
+# for TAXA in "${TAXALIST[@]}"
+# do
+    # echo "Fetching GBIF data for ${TAXA}..."
+    # aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
+    #                     --taxa "${TAXA}" \
+    #                     --output_dir "${DATADIR}"/validation/occurrences/"${TAXA}"
+    # echo "Validating occurrences for ${TAXA}..."
+    # aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
+    #                          --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
+    #                          --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
+    #                          --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
+# done
 
 # Threats
 echo "Generating threat task list..."
