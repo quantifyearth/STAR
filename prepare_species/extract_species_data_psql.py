@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 logging.basicConfig()
 logger.setLevel(logging.DEBUG)
 
+# Note that this query returns more species that would be accepted into STAR based on
+# threat category, but for model checking we want all AOHs for a given taxa, so the
+# pipeline must process them all, and then just include the correct set when processing
+# STAR
 MAIN_STATEMENT = """
 SELECT
     assessments.sis_taxon_id as id_no,
@@ -54,7 +58,7 @@ WHERE
     AND taxons.class_name = %s
     AND taxons.infra_type is NULL -- no subspecies
     AND taxons.metadata->>'taxon_level' = 'Species'
-    AND red_list_category_lookup.code IN ('NT', 'VU', 'EN', 'CR')
+    AND red_list_category_lookup.code IN ('DD', 'LC', 'NT', 'VU', 'EN', 'CR')
 """
 
 SYSTEMS_STATEMENT = """
@@ -138,20 +142,10 @@ def process_row(
         presence += (4,)
         report.possibly_extinct = True # pylint: disable=W0201
 
-    cursor.execute(SYSTEMS_STATEMENT, (assessment_id,))
-    systems_data = cursor.fetchall()
-    try:
-        systems = process_systems(systems_data, report)
-    except ValueError as exc:
-        logger.debug("Dropping %s: %s", id_no, str(exc))
-        return report
+    include_in_star = category in ('NT', 'VU', 'EN', 'CR')
+    report.has_category = include_in_star
 
-    cursor.execute(THREATS_STATEMENT, (assessment_id,))
-    raw_threats = cursor.fetchall()
-    threats = process_threats(raw_threats, report)
-    if len(threats) == 0:
-        return report
-
+    # First checks are the ones that rule out being able to make an AOH at all
     cursor.execute(HABITATS_STATEMENT, (assessment_id,))
     raw_habitats = cursor.fetchall()
     try:
@@ -170,6 +164,37 @@ def process_row(
     except ValueError as _exc:
         return report
 
+    # Second checks are whether it is good for STAR, so from hereon we should
+    # output a GeoJSON regardless as we should make an AOH for validation with this
+    cursor.execute(SYSTEMS_STATEMENT, (assessment_id,))
+    systems_data = cursor.fetchall()
+    try:
+        systems = process_systems(systems_data, report)
+    except ValueError as exc:
+        logger.debug("Dropping %s: %s", id_no, str(exc))
+        include_in_star = False
+        try:
+            systems = systems_data[0][0]
+        except IndexError:
+            systems = []
+
+    cursor.execute(THREATS_STATEMENT, (assessment_id,))
+    raw_threats = cursor.fetchall()
+    threats = process_threats(raw_threats, report)
+    if len(threats) == 0:
+        include_in_star = False
+
+    report.in_star = include_in_star
+
+    try:
+        category_weight = CATEGORY_WEIGHTS[category]
+    except KeyError:
+        assert include_in_star is False
+        category_weight = 0
+
+    # This is a fix as per the method to include the missing islands layer:
+    habitats_list = list(habitats) + ["islands"]
+
     gdf = gpd.GeoDataFrame(
         [[
             id_no,
@@ -179,14 +204,15 @@ def process_row(
             systems,
             int(elevation_lower) if elevation_lower is not None else None,
             int(elevation_upper) if elevation_upper is not None else None,
-            '|'.join(list(habitats)),
+            '|'.join(habitats_list),
             scientific_name,
             family_name,
             class_name,
             json.dumps(threats),
             category,
-            CATEGORY_WEIGHTS[category],
-            geometry
+            category_weight,
+            geometry,
+            include_in_star,
           ]],
         columns=COLUMNS,
         crs=target_projection or 'epsg:4326'

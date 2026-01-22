@@ -28,7 +28,8 @@ COLUMNS = [
     "threats",
     "category",
     "category_weight",
-    "geometry"
+    "geometry",
+    "in_star",
 ]
 
 # From Muir et al: For each species, a global STAR threat abatement (START) score
@@ -84,6 +85,8 @@ class SpeciesReport:
         "keeps_habitats",
         "has_geometries",
         "keeps_geometries",
+        "has_category",
+        "in_star",
         "filename",
     ]
 
@@ -224,6 +227,16 @@ def tidy_reproject_save(
     os.makedirs(output_directory_path, exist_ok=True)
     output_path = output_directory_path / f"{grow.id_no}.geojson"
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
+
+    # Ensure proper dtypes for JSON serialization
+    int_columns = ['id_no', 'assessment_id', 'assessment_year', 'elevation_lower', 'elevation_upper', 'category_weight']
+    for col in int_columns:
+        if col in res.columns:
+            res[col] = res[col].astype('Int64')  # Nullable integer type
+
+    if 'in_star' in res.columns:
+        res['in_star'] = res['in_star'].astype(bool)
+
     res_projected = res.to_crs(target_crs)
     res_projected.to_file(output_path, driver="GeoJSON")
     report.filename = output_path
