@@ -73,7 +73,7 @@ if [ ! -f "${DATADIR}"/habitat_layers/current/lcc_0.tif ]; then
     cp "${DATADIR}/Zenodo/MissingLandcover_1km_cover.tif" "${DATADIR}"/habitat_layers/current/lcc_0.tif
 fi
 
-if [ ! -d "${DATADIR}"/masks ]; then
+if [ ! -f "${DATADIR}"/masks/CGLS100Inland_withGADMIslands.tif ]; then
     echo "Processing masks..."
     python3 ./prepare_layers/remove_nans_from_mask.py --original "${DATADIR}"/Zenodo/CGLS100Inland_withGADMIslands.tif \
                                                       --output "${DATADIR}"/masks/CGLS100Inland_withGADMIslands.tif
@@ -90,7 +90,10 @@ for TAXA in "${TAXALIST[@]}"
 do
     if [ ! -d "${DATADIR}"/species-info/"${TAXA}"/ ]; then
         echo "Extracting species data for ${TAXA}..."
-        python3 ./prepare_species/extract_species_data_psql.py --class "${TAXA}" --output "${DATADIR}"/species-info/"${TAXA}"/ --projection "ESRI:54009" --excludes "${DATADIR}"/SpeciesList_generalisedRangePolygons.csv
+        python3 ./prepare_species/extract_species_data_psql.py --class "${TAXA}" \
+                                                               --output "${DATADIR}"/species-info/"${TAXA}"/ \
+                                                               --projection "ESRI:54009" \
+                                                               --excludes "${DATADIR}"/SpeciesList_generalisedRangePolygons.csv
     fi
 done
 
@@ -106,13 +109,13 @@ echo "Generating AoHs..."
 littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/aohbatch.csv "${VIRTUAL_ENV}"/bin/aoh-calc
 
 # Calculate predictors from AoHs
-# echo "Generating species richness..."
-# aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
-                #      --output "${DATADIR}"/summaries/species_richness.tif
-# echo "Generating endemism..."
-# aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
-             # --species_richness "${DATADIR}"/summaries/species_richness.tif \
-             # --output "${DATADIR}"/summaries/endemism.tif
+echo "Generating species richness..."
+aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
+                     --output "${DATADIR}"/summaries/species_richness.tif
+echo "Generating endemism..."
+aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
+             --species_richness "${DATADIR}"/summaries/species_richness.tif \
+             --output "${DATADIR}"/summaries/endemism.tif
 
 # Aoh Validation
 echo "Collating validation data..."
@@ -121,18 +124,18 @@ aoh-collate-data --aoh_results "${DATADIR}"/aohs/current/ \
 echo "Calculating model validation..."
 aoh-validate-prevalence --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
                         --output "${DATADIR}"/validation/model_validation.csv
-# for TAXA in "${TAXALIST[@]}"
-# do
-    # echo "Fetching GBIF data for ${TAXA}..."
-    # aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
-    #                     --taxa "${TAXA}" \
-    #                     --output_dir "${DATADIR}"/validation/occurrences/"${TAXA}"
-    # echo "Validating occurrences for ${TAXA}..."
-    # aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
-    #                          --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
-    #                          --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
-    #                          --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
-# done
+for TAXA in "${TAXALIST[@]}"
+do
+    echo "Fetching GBIF data for ${TAXA}..."
+    aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
+                        --taxa "${TAXA}" \
+                        --output_dir "${DATADIR}"/validation/occurrences/
+    echo "Validating occurrences for ${TAXA}..."
+    aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
+                             --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
+                             --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
+                             --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
+done
 
 # Threats
 echo "Generating threat task list..."
