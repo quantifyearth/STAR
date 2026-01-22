@@ -193,7 +193,7 @@ def process_row(
         category_weight = 0
 
     # This is a fix as per the method to include the missing islands layer:
-    habitats = list(habitats) + ["islands"]
+    habitats_list = list(habitats) + ["islands"]
 
     gdf = gpd.GeoDataFrame(
         [[
@@ -204,7 +204,7 @@ def process_row(
             systems,
             int(elevation_lower) if elevation_lower is not None else None,
             int(elevation_upper) if elevation_upper is not None else None,
-            '|'.join(habitats),
+            '|'.join(habitats_list),
             scientific_name,
             family_name,
             class_name,

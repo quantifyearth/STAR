@@ -243,7 +243,7 @@ def process_species(
         logger.debug("Dropping %s: %s", id_no, exc)
         return report
 
-    habitats = list(habitats) + ["islands"]
+    habitats_list = list(habitats) + ["islands"]
 
     # Create GeoDataFrame with all data
     gdf = gpd.GeoDataFrame(
@@ -255,7 +255,7 @@ def process_species(
             systems,
             elevation_lower,
             elevation_upper,
-            '|'.join(habitats),
+            '|'.join(habitats_list),
             scientific_name,
             family_name,
             class_name,
