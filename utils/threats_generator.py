@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 from pathlib import Path
 
@@ -23,11 +24,17 @@ def threats_generator(
                 taxon_id = species_path.stem
                 aoh_path = data_dir / "aohs" / source / taxa_dir_path.name / f"{taxon_id}_all.tif"
                 if aoh_path.exists():
-                    res.append([
-                        species_path,
-                        aoh_path,
-                        data_dir / "threat_rasters" / taxa_dir_path.name,
-                    ])
+                    # Check if species should be included in STAR. We don't use geopandas here
+                    # because it will parse the geometry, which can be quite slow, and we just
+                    # want a single bool field
+                    with open(species_path, 'r', encoding="UTF-8") as f:
+                        data = json.load(f)
+                    if data['features'][0]['properties']['in_star']:
+                        res.append([
+                            species_path,
+                            aoh_path,
+                            data_dir / "threat_rasters" / taxa_dir_path.name,
+                        ])
 
     df = pd.DataFrame(res, columns=[
         '--speciesdata',

@@ -22,21 +22,21 @@ def aoh_generator(
             for species_path in species_paths:
                 res.append([
                     data_dir / "habitat_layers" / scenario,
-                    data_dir / "elevation" / "elevation-max-1k.tif",
-                    data_dir / "elevation" / "elevation-min-1k.tif",
+                    data_dir / "Zenodo" / "FABDEM_1km_max_patched.tif",
+                    data_dir / "Zenodo" / "FABDEM_1km_min_patched.tif",
                     data_dir / "crosswalk.csv",
                     species_path,
-                    data_dir / "masks" / "terrestrial_mask.tif",
+                    data_dir / "masks" / "CGLS100Inland_withGADMIslands.tif",
                     data_dir / "aohs" / scenario / taxa_dir_path.name,
                 ])
 
     df = pd.DataFrame(res, columns=[
-        '--habitats',
+        '--fractional_habitats',
         '--elevation-max',
         '--elevation-min',
         '--crosswalk',
         '--speciesdata',
-        '--area',
+        '--weights',
         '--output'
     ])
     output_dir, _ = os.path.split(output_csv_path)
