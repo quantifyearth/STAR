@@ -46,6 +46,11 @@ if [ -z "${VIRTUAL_ENV}" ]; then
     exit 1
 fi
 
+PYTHON_BIN=$(command -v python3)
+echo "Located Python: ${PYTHON_BIN}"
+AOH_CALC_BIN=$(command -v aoh-calc)
+echo "Located aoh-calc: ${AOH_CALC_BIN}"
+
 declare -a TAXALIST=("AMPHIBIA" "AVES" "MAMMALIA" "REPTILIA")
 
 if [ ! -d "${DATADIR}" ]; then
@@ -106,7 +111,7 @@ echo "Generating AoH task list..."
 python3 ./utils/aoh_generator.py --input "${DATADIR}"/species-info --datadir "${DATADIR}" --output "${DATADIR}"/aohbatch.csv
 
 echo "Generating AoHs..."
-littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/aohbatch.csv "${VIRTUAL_ENV}"/bin/aoh-calc
+littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/aohbatch.csv "${AOH_CALC_BIN}"
 
 # Calculate predictors from AoHs
 echo "Generating species richness..."
@@ -142,7 +147,7 @@ echo "Generating threat task list..."
 python3 ./utils/threats_generator.py --input "${DATADIR}"/species-info --datadir "${DATADIR}" --output "${DATADIR}"/threatbatch.csv
 
 echo "Generating threat rasters..."
-littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/threatbatch.log -c "${DATADIR}"/threatbatch.csv "${VIRTUAL_ENV}"/bin/python3 -- ./threats/threat_processing.py
+littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/threatbatch.log -c "${DATADIR}"/threatbatch.csv "${PYTHON_BIN}" -- ./threats/threat_processing.py
 
 echo "Summarising threats..."
 python3 ./threats/threat_summation.py --threat_rasters "${DATADIR}"/threat_rasters --output "${DATADIR}"/threat_results
