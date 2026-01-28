@@ -107,47 +107,64 @@ if [ -f "${DATADIR}"/BL_Species_Elevations_2023.csv ]; then
     python3 ./prepare_species/apply_birdlife_data.py --geojsons "${DATADIR}"/species-info/AVES --overrides "${DATADIR}"/BL_Species_Elevations_2023.csv
 fi
 
-echo "Generating AoH task list..."
-python3 ./utils/aoh_generator.py --input "${DATADIR}"/species-info --datadir "${DATADIR}" --output "${DATADIR}"/aohbatch.csv
+if [ ! -d "${DATADIR}"/aohs ]; then
+    echo "Generating AoH task list..."
+    python3 ./utils/aoh_generator.py --input "${DATADIR}"/species-info --datadir "${DATADIR}" --output "${DATADIR}"/aohbatch.csv
 
-echo "Generating AoHs..."
-littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/aohbatch.csv "${AOH_CALC_BIN}"
+    echo "Generating AoHs..."
+    littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/aohbatch.log -c "${DATADIR}"/aohbatch.csv "${AOH_CALC_BIN}"
+fi
 
 # Calculate predictors from AoHs
-echo "Generating species richness..."
-aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
-                     --output "${DATADIR}"/summaries/species_richness.tif
-echo "Generating endemism..."
-aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
-             --species_richness "${DATADIR}"/summaries/species_richness.tif \
-             --output "${DATADIR}"/summaries/endemism.tif
+if [ ! -f "${DATADIR}"/summaries/species_richness.tif ]; then
+    echo "Generating species richness..."
+    aoh-species-richness --aohs_folder "${DATADIR}"/aohs/current/ \
+                        --output "${DATADIR}"/summaries/species_richness.tif
+fi
+if [ ! -f "${DATADIR}"/summaries/endemism.tif ]; then
+    echo "Generating endemism..."
+    aoh-endemism --aohs_folder "${DATADIR}"/aohs/current/ \
+                --species_richness "${DATADIR}"/summaries/species_richness.tif \
+                --output "${DATADIR}"/summaries/endemism.tif
+fi
 
 # Aoh Validation
-echo "Collating validation data..."
-aoh-collate-data --aoh_results "${DATADIR}"/aohs/current/ \
-                 --output "${DATADIR}"/validation/aohs.csv
-echo "Calculating model validation..."
-aoh-validate-prevalence --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
-                        --output "${DATADIR}"/validation/model_validation.csv
+if [ ! -f "${DATADIR}"/validation/aohs.csv ]; then
+    echo "Collating validation data..."
+    aoh-collate-data --aoh_results "${DATADIR}"/aohs/current/ \
+                    --output "${DATADIR}"/validation/aohs.csv
+fi
+if [ ! -f  "${DATADIR}"/validation/model_validation.csv ]; then
+    echo "Calculating model validation..."
+    aoh-validate-prevalence --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
+                            --output "${DATADIR}"/validation/model_validation.csv
+fi
+
 for TAXA in "${TAXALIST[@]}"
 do
-    echo "Fetching GBIF data for ${TAXA}..."
-    aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
-                        --taxa "${TAXA}" \
-                        --output_dir "${DATADIR}"/validation/occurrences/
-    echo "Validating occurrences for ${TAXA}..."
-    aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
-                             --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
-                             --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
-                             --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
+    if [ ! -f "${DATADIR}"/validation/occurrences/"${TAXA}".csv ]; then
+        echo "Fetching GBIF data for ${TAXA}..."
+        aoh-fetch-gbif-data --collated_aoh_data "${DATADIR}"/validation/aohs.csv \
+                            --taxa "${TAXA}" \
+                            --output_dir "${DATADIR}"/validation/occurrences/
+        echo "Validating occurrences for ${TAXA}..."
+        aoh-validate-occurrences --gbif_data_path "${DATADIR}"/validation/occurrences/"${TAXA}" \
+                                --species_data "${DATADIR}"/species-info/"${TAXA}"/current/ \
+                                --aoh_results  "${DATADIR}"/aohs/current/"${TAXA}"/ \
+                                --output "${DATADIR}"/validation/occurrences/"${TAXA}".csv
+    fi
 done
 
 # Threats
-echo "Generating threat task list..."
-python3 ./utils/threats_generator.py --input "${DATADIR}"/species-info --datadir "${DATADIR}" --output "${DATADIR}"/threatbatch.csv
+if [ ! -d  "${DATADIR}"/threat_rasters ]; then
+    echo "Generating threat task list..."
+    python3 ./utils/threats_generator.py --input "${DATADIR}"/species-info --datadir "${DATADIR}" --output "${DATADIR}"/threatbatch.csv
 
-echo "Generating threat rasters..."
-littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/threatbatch.log -c "${DATADIR}"/threatbatch.csv "${PYTHON_BIN}" -- ./threats/threat_processing.py
-
-echo "Summarising threats..."
-python3 ./threats/threat_summation.py --threat_rasters "${DATADIR}"/threat_rasters --output "${DATADIR}"/threat_results
+    echo "Generating threat rasters..."
+    littlejohn -j "${PROCESS_COUNT}" -o "${DATADIR}"/threatbatch.log -c "${DATADIR}"/threatbatch.csv "${PYTHON_BIN}" -- ./threats/threat_processing.py
+fi
+if [ ! -d "${DATADIR}"/threat_results ]; then
+    echo "Summarising threats..."
+    python3 ./threats/threat_summation.py --threat_rasters "${DATADIR}"/threat_rasters --output "${DATADIR}"/threat_results_tmp
+    mv "${DATADIR}"/threat_results_tmp "${DATADIR}"/threat_results
+fi
