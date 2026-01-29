@@ -5,6 +5,7 @@ from pathlib import Path
 import aoh
 import geopandas as gpd
 import pandas as pd
+from snakemake_argparse_bridge import snakemake_compatible
 
 # Columns from current BirdLife data overrides:
 # SIS ID
@@ -51,6 +52,10 @@ def apply_birdlife_data(
         res = gpd.GeoDataFrame(data.to_frame().transpose(), crs=species_info.crs, geometry="geometry")
         res.to_file(path, driver="GeoJSON")
 
+@snakemake_compatible(mapping={
+    "geojson_directory_path": "params.geojson_dir",
+    "overrides": "input.overrides",
+})
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
     parser.add_argument(

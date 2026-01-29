@@ -7,6 +7,7 @@ from pathlib import Path
 import geopandas as gpd
 import yirgacheffe as yg
 from pyogrio.errors import DataSourceError
+from snakemake_argparse_bridge import snakemake_compatible
 
 def threat_processing_per_species(
     species_data_path: Path,
@@ -51,6 +52,11 @@ def threat_processing_per_species(
             output_path = threat_dir_path / f"{taxon_id}.tif"
             per_threat_per_species_score.to_geotiff(output_path)
 
+@snakemake_compatible(mapping={
+    "species_data_path": "input.species_data",
+    "aoh_path": "input.aoh",
+    "output_directory_path": "params.output_dir",
+})
 def main() -> None:
     os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
 

@@ -11,6 +11,10 @@ boto3
 yirgacheffe>=1.12,<2.0
 aoh[validation]>=2.0.2,<3.0
 
+# Snakemake workflow management
+snakemake>=8.0
+snakemake-argparse-bridge
+
 # GDAL should be installed manually to match the version of the library installed on your machine
 gdal[numpy]
 

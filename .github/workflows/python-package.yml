@@ -22,7 +22,7 @@ jobs:
       - name: Install system
         run: |
           apt-get update -qqy
-          apt-get install -y git python3-pip libpq5 libpq-dev r-base libtirpc-dev shellcheck
+          apt-get install -y git python3-pip libpq5 libpq-dev r-base libtirpc-dev
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
@@ -37,6 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install gdal[numpy]==3.11.4
           python -m pip install -r requirements.txt
+          python -m pip install snakefmt
 
       - name: Lint with pylint
         run: python3 -m pylint utils prepare_layers prepare_species threats
@@ -47,6 +48,11 @@ jobs:
       - name: Tests
         run: python3 -m pytest ./tests
 
-      - name: Script checks
-        run: |
-          shellcheck ./scripts/run.sh
+      - name: Snakemake format check
+        run: snakefmt --check workflow/
+
+      - name: Snakemake lint
+        run: snakemake --snakefile workflow/Snakefile --lint
+
+      - name: Snakemake dry run
+        run: snakemake --snakefile workflow/Snakefile --dry-run all

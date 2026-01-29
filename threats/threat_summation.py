@@ -9,6 +9,7 @@ from pathlib import Path
 import yirgacheffe as yg
 from yirgacheffe.layers import RasterLayer
 from osgeo import gdal
+from snakemake_argparse_bridge import snakemake_compatible
 
 gdal.SetCacheMax(1024 * 1024 * 32)
 
@@ -180,6 +181,11 @@ def threat_summation(
     reduce_to_next_level(level1_target, final_target, processes_count)
 
 
+@snakemake_compatible(mapping={
+    "rasters_directory": "params.threat_rasters_dir",
+    "output_directory": "params.output_dir",
+    "processes_count": "threads",
+})
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generates the combined, and level 1 and level 2 threat rasters.")
     parser.add_argument(
