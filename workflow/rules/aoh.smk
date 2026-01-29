@@ -45,6 +45,25 @@ rule aoh_version_sentinel:
 # Per-Species AOH Generation
 # =============================================================================
 
+def aoh_species_inputs(wildcards):
+  """Return inputs for generate_aoh, including birdlife sentinel for AVES."""
+  inputs = {
+      "species_data": DATADIR / "species-info" / wildcards.taxa / SCENARIO / f"{wildcards.species_id}.geojson",
+
+      # Base layers (precious - won't trigger rebuilds)
+      "habitat_sentinel": ancient(DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete"),
+      "crosswalk": DATADIR / "crosswalk.csv",
+      "mask": ancient(DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif"),
+      "elevation_max": ancient(DATADIR / "Zenodo" / "FABDEM_1km_max_patched.tif"),
+      "elevation_min": ancient(DATADIR / "Zenodo" / "FABDEM_1km_min_patched.tif"),
+
+      # Version sentinel for code-sensitive rebuilds
+      "version_sentinel": DATADIR / ".sentinels" / "aoh_version.txt",
+  }
+  if wildcards.taxa == "AVES":
+      inputs["birdlife_applied"] = DATADIR / "species-info" / "AVES" / ".birdlife_applied"
+  return inputs
+
 rule generate_aoh:
     """
     Generate Area of Habitat raster for a single species.
@@ -57,23 +76,14 @@ rule generate_aoh:
     aoh package is updated.
     """
     input:
-        # Species data
-        species_data=DATADIR / "species-info" / "{taxa}" / SCENARIO / "{species_id}.geojson",
-        # Base layers (precious - won't trigger rebuilds)
-        habitat_sentinel=ancient(DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete"),
-        crosswalk=DATADIR / "crosswalk.csv",
-        mask=ancient(DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif"),
-        elevation_max=ancient(DATADIR / "Zenodo" / "FABDEM_1km_max_patched.tif"),
-        elevation_min=ancient(DATADIR / "Zenodo" / "FABDEM_1km_min_patched.tif"),
-        # Version sentinel for code-sensitive rebuilds
-        version_sentinel=DATADIR / ".sentinels" / "aoh_version.txt",
+        unpack(aoh_species_inputs),
     output:
         # Only declare JSON as output - TIF is optional (not created for empty AOHs)
         metadata=DATADIR / "aohs" / SCENARIO / "{taxa}" / "{species_id}_all.json",
     params:
         habitat_dir=DATADIR / "habitat_layers" / SCENARIO,
     log:
-        DATADIR / "logs" / "aoh" / "{taxa}" / "{species_id}.log",
+        DATADIR / "logs" / "aoh" / "{taxa}" / "{species_id}_all.log",
     resources:
         # Limit concurrent AOH jobs if needed (e.g., for memory)
         aoh_slots=1,
@@ -134,22 +144,39 @@ rule aggregate_aohs_per_taxa:
         touch {output.sentinel}
         """
 
-
 # =============================================================================
-# All AOHs Aggregation
+# Collate AOH Data
 # =============================================================================
 
-rule all_aohs:
+rule collate_aoh_data:
     """
-    Aggregate rule that ensures all AOHs for all taxa are generated.
+    Collate metadata from all AOH JSON files into a single CSV.
+
+    This reads the .json metadata files that are generated alongside each
+    AOH raster. The CSV is used by downstream validation and analysis.
+
+    Note: This depends on AOH JSON files, not raster files, because some
+    species may have empty AOHs (no raster) but still have metadata.
     """
     input:
+        # All AOHs must be complete
         sentinels=expand(
             str(DATADIR / "aohs" / SCENARIO / "{taxa}" / ".complete"),
             taxa=TAXA
         ),
+        # Version tracking
+        version_sentinel=DATADIR / ".sentinels" / "aoh_version.txt",
     output:
-        sentinel=DATADIR / "aohs" / SCENARIO / ".all_complete",
+        collated=DATADIR / "validation" / "aohs.csv",
+    params:
+        aoh_results_dir=DATADIR / "aohs" / SCENARIO,
+    log:
+        DATADIR / "logs" / "collate_aoh_data.log",
     shell:
-        "touch {output.sentinel}"
-
+        """
+        mkdir -p $(dirname {output.collated})
+        aoh-collate-data \
+            --aoh_results {params.aoh_results_dir} \
+            --output {output.collated} \
+            2>&1 | tee {log}
+        """

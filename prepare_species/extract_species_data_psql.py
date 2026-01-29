@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+import sys
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -194,7 +195,7 @@ def process_row(
         category_weight = 0
 
     # This is a fix as per the method to include the missing islands layer:
-    habitats_list = list(habitats) + ["islands"]
+    habitats_list = sorted(list(habitats)) + ["islands"]
 
     gdf = gpd.GeoDataFrame(
         [[
@@ -309,7 +310,7 @@ def extract_data_per_species(
 @snakemake_compatible(mapping={
     "classname": "params.classname",
     "overrides": "params.overrides",
-    "excludes": "params.excludes",
+    "excludes": "input.excludes",
     "output_directory_path": "params.output_dir",
     "target_projection": "params.projection",
 })

@@ -5,7 +5,7 @@ WORKDIR /go/reclaimer
 RUN go mod tidy
 RUN go build
 
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.4
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
 
 RUN apt-get update -qqy && \
 	apt-get install -qy \
@@ -21,7 +21,7 @@ RUN apt-get update -qqy && \
 COPY --from=reclaimerbuild /go/reclaimer/reclaimer /bin/reclaimer
 
 RUN rm /usr/lib/python3.*/EXTERNALLY-MANAGED
-RUN pip install gdal[numpy]==3.11.4
+RUN pip install gdal[numpy]==3.12.1
 
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt

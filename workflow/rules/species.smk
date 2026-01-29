@@ -71,6 +71,7 @@ checkpoint extract_species_data:
     input:
         # Code version sentinel for rebuild tracking
         version_sentinel=DATADIR / ".sentinels" / "species_code_version.txt",
+        excludes=DATADIR / config['optional_inputs']['species_excludes'],
     output:
         # The report.csv is the known output; GeoJSON files are dynamic
         report=DATADIR / "species-info" / "{taxa}" / SCENARIO / "report.csv",
@@ -78,15 +79,11 @@ checkpoint extract_species_data:
         classname="{taxa}",
         output_dir=lambda wildcards: DATADIR / "species-info" / wildcards.taxa,
         projection=config["projection"],
-        excludes=lambda wildcards: (
-            f"--excludes {DATADIR / config['optional_inputs']['species_excludes']}"
-            if (DATADIR / config["optional_inputs"]["species_excludes"]).exists()
-            else ""
-        ),
     log:
         DATADIR / "logs" / "extract_species_{taxa}.log",
     resources:
-        # Serialize DB access - only one extraction at a time
+        # Serialize DB access - only one extraction script at a time
+        # as it will make many concurrent connections internally
         db_connections=1,
     shell:
         """
@@ -94,7 +91,7 @@ checkpoint extract_species_data:
             --class {params.classname} \
             --output {params.output_dir} \
             --projection "{params.projection}" \
-            {params.excludes} \
+            --excludes {input.excludes} \
             2>&1 | tee {log}
         """
 
@@ -127,29 +124,3 @@ rule apply_birdlife_overrides:
             2>&1 | tee {log}
         touch {output.sentinel}
         """
-
-
-# =============================================================================
-# Aggregation Rule for All Species Data
-# =============================================================================
-
-def all_species_reports(wildcards):
-    """
-    Return paths to all species reports for all taxa.
-    """
-    return [
-        DATADIR / "species-info" / taxa / SCENARIO / "report.csv"
-        for taxa in TAXA
-    ]
-
-
-rule all_species_data:
-    """
-    Aggregate rule that ensures all species data is extracted.
-    """
-    input:
-        reports=all_species_reports,
-    output:
-        sentinel=DATADIR / "species-info" / ".all_extracted",
-    shell:
-        "touch {output.sentinel}"

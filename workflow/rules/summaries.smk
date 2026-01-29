@@ -29,7 +29,7 @@ rule species_richness:
     """
     input:
         # All AOHs must be complete
-        aoh_sentinel=DATADIR / "aohs" / SCENARIO / ".all_complete",
+        aoh_sentinel=DATADIR / "validation" / "aohs.csv",
         # Version tracking
         version_sentinel=DATADIR / ".sentinels" / "aoh_version.txt",
     output:
@@ -66,7 +66,7 @@ rule endemism:
     """
     input:
         # Dependencies
-        aoh_sentinel=DATADIR / "aohs" / SCENARIO / ".all_complete",
+        aoh_sentinel=DATADIR / "validation" / "aohs.csv",
         species_richness=DATADIR / "summaries" / "species_richness.tif",
         # Version tracking
         version_sentinel=DATADIR / ".sentinels" / "aoh_version.txt",

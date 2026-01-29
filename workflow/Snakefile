@@ -20,6 +20,9 @@
 import os
 from pathlib import Path
 
+# Allow GDAL/OGR to handle large GeoJSON objects
+os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
+
 # Load configuration
 configfile: "config/config.yaml"
 
@@ -82,10 +85,7 @@ rule aohs:
     Target: generate all AoH rasters.
     """
     input:
-        expand(
-            str(DATADIR / "aohs" / SCENARIO / "{taxa}" / ".complete"),
-            taxa=TAXA
-        ),
+        DATADIR / "validation" / "aohs.csv",
 
 
 rule species_data:
@@ -93,6 +93,7 @@ rule species_data:
     Target: extract species data from PostgreSQL.
     """
     input:
+        DATADIR / "species-info" / "AVES" / ".birdlife_applied",
         expand(
             str(DATADIR / "species-info" / "{taxa}" / SCENARIO / "report.csv"),
             taxa=TAXA
@@ -114,7 +115,7 @@ rule prepare:
 
 rule validation:
     """
-    Target: run model validation (excludes GBIF which is expensive).
+    Target: run model validation (excludes occurrence validation by default which is expensive).
     """
     input:
         DATADIR / "validation" / "model_validation.csv",

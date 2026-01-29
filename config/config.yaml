@@ -20,7 +20,6 @@ habitat_scale: 992.292720200000133
 # Input data files (relative to datadir)
 # These are expected to be pre-downloaded in the Zenodo subfolder
 inputs:
-  raw_habitat: "habitat/raw.tif"
   zenodo_mask: "Zenodo/CGLS100Inland_withGADMIslands.tif"
   zenodo_elevation_max: "Zenodo/FABDEM_1km_max_patched.tif"
   zenodo_elevation_min: "Zenodo/FABDEM_1km_min_patched.tif"

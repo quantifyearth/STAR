@@ -13,42 +13,6 @@
 import os
 from pathlib import Path
 
-
-# =============================================================================
-# Collate AOH Data
-# =============================================================================
-
-rule collate_aoh_data:
-    """
-    Collate metadata from all AOH JSON files into a single CSV.
-
-    This reads the .json metadata files that are generated alongside each
-    AOH raster. The CSV is used by downstream validation and analysis.
-
-    Note: This depends on AOH JSON files, not raster files, because some
-    species may have empty AOHs (no raster) but still have metadata.
-    """
-    input:
-        # All AOHs must be complete
-        aoh_sentinel=DATADIR / "aohs" / SCENARIO / ".all_complete",
-        # Version tracking
-        version_sentinel=DATADIR / ".sentinels" / "aoh_version.txt",
-    output:
-        collated=DATADIR / "validation" / "aohs.csv",
-    params:
-        aoh_results_dir=DATADIR / "aohs" / SCENARIO,
-    log:
-        DATADIR / "logs" / "collate_aoh_data.log",
-    shell:
-        """
-        mkdir -p $(dirname {output.collated})
-        aoh-collate-data \
-            --aoh_results {params.aoh_results_dir} \
-            --output {output.collated} \
-            2>&1 | tee {log}
-        """
-
-
 # =============================================================================
 # Model Validation
 # =============================================================================

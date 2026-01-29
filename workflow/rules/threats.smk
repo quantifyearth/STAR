@@ -20,46 +20,6 @@ from pathlib import Path
 
 
 # =============================================================================
-# Version Sentinel for Threat Code
-# =============================================================================
-
-rule threat_version_sentinel:
-    """
-    Create a version sentinel that tracks changes to threat processing code.
-    """
-    input:
-        script1=SRCDIR / "threats" / "threat_processing.py",
-        script2=SRCDIR / "threats" / "threat_summation.py",
-    output:
-        sentinel=DATADIR / ".sentinels" / "threat_code_version.txt",
-    run:
-        import hashlib
-        import subprocess
-
-        os.makedirs(os.path.dirname(output.sentinel), exist_ok=True)
-
-        # Hash the tracked scripts
-        hashes = []
-        for f in input:
-            with open(f, 'rb') as fh:
-                hashes.append(hashlib.sha256(fh.read()).hexdigest()[:12])
-
-        # Get aoh package version (threat processing depends on it)
-        try:
-            result = subprocess.run(
-                ["aoh-calc", "--version"],
-                capture_output=True, text=True, check=True
-            )
-            aoh_version = result.stdout.strip()
-        except Exception:
-            aoh_version = "unknown"
-
-        with open(output.sentinel, 'w') as f:
-            f.write(f"scripts: {','.join(hashes)}\n")
-            f.write(f"aoh: {aoh_version}\n")
-
-
-# =============================================================================
 # Helper Functions
 # =============================================================================
 
@@ -120,8 +80,6 @@ rule generate_threat_rasters:
         # Species data and AOH
         species_data=DATADIR / "species-info" / "{taxa}" / SCENARIO / "{species_id}.geojson",
         aoh=DATADIR / "aohs" / SCENARIO / "{taxa}" / "{species_id}_all.tif",
-        # Version tracking
-        version_sentinel=DATADIR / ".sentinels" / "threat_code_version.txt",
     output:
         # Sentinel file since actual outputs depend on species' threats
         sentinel=DATADIR / "threat_rasters" / "{taxa}" / ".{species_id}_complete",
@@ -131,16 +89,8 @@ rule generate_threat_rasters:
         DATADIR / "logs" / "threats" / "{taxa}" / "{species_id}.log",
     resources:
         threat_slots=1,
-    shell:
-        """
-        mkdir -p $(dirname {log})
-        python3 {SRCDIR}/threats/threat_processing.py \
-            --speciesdata {input.species_data} \
-            --aoh {input.aoh} \
-            --output {params.output_dir} \
-            2>&1 | tee {log}
-        touch {output.sentinel}
-        """
+    script:
+        str(SRCDIR / "threats" / "threat_processing.py")
 
 
 # =============================================================================
@@ -193,36 +143,16 @@ rule threat_summation:
     - level2/: Aggregated by threat code (e.g., 1.1.tif, 1.2.tif)
     - level1/: Aggregated by major threat (e.g., 1.tif, 2.tif)
     - level0/top.tif: Final STAR map (all threats summed)
-
-    Uses internal parallelism via the -j flag.
     """
     input:
-        # All threat rasters must be complete
         sentinel=DATADIR / "threat_rasters" / ".all_complete",
-        # Version tracking
-        version_sentinel=DATADIR / ".sentinels" / "threat_code_version.txt",
     output:
-        # Final STAR output
         star_map=DATADIR / "threat_results" / "level0" / "top.tif",
-        # Sentinel for completion
-        sentinel=DATADIR / "threat_results" / ".complete",
     params:
         threat_rasters_dir=DATADIR / "threat_rasters",
-        output_dir=DATADIR / "threat_results_tmp",
-        final_dir=DATADIR / "threat_results",
-    threads: 4
+        output_dir=DATADIR / "threat_results",
+    threads: workflow.cores
     log:
         DATADIR / "logs" / "threat_summation.log",
-    shell:
-        """
-        python3 {SRCDIR}/threats/threat_summation.py \
-            --threat_rasters {params.threat_rasters_dir} \
-            --output {params.output_dir} \
-            -j {threads} \
-            2>&1 | tee {log}
-
-        # Atomic move of completed directory
-        rm -rf {params.final_dir}
-        mv {params.output_dir} {params.final_dir}
-        touch {output.sentinel}
-        """
+    script:
+        str(SRCDIR / "threats" / "threat_summation.py")
