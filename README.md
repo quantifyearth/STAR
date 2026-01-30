@@ -2,8 +2,6 @@
 
 An implementation of the threat based [STAR biodiversity metric by Muir et al](https://www.nature.com/articles/s41559-021-01432-0) (also known as STAR(t)).
 
-See [method.md](method.md) for a description of the methodology, or `scripts/run.sh` for how to execute the pipeline.
-
 ## Checking out the code
 
 The code is available on github, and can be checked out from there:
@@ -22,7 +20,6 @@ There are some additional inputs required to run the pipeline, which should be p
 * BL_Species_Elevations_2023.csv (optional) - corrections to the elevation of birdlife species on the IUCN Redlist taken from the BirdLife data.
 
 The script also assumes you have a Postgres database with the IUCN Redlist database in it.
-
 
 ## Species data acquisition
 
@@ -45,6 +42,8 @@ Because sometimes you do not need to run all the pipeline for a specific job, th
 * occurrence_validation: Run occurrence validation - this can be VERY SLOW as it fetches occurrence data from GBIF.
 * threats: Generate the STAR(t) raster layers.
 * all: Do everything except occurrence validation.
+
+There is a configuration file in `config/config.yaml` that is used to set experimental parameters such as which taxa to run the pipeline for.
 
 ### Running with Docker
 

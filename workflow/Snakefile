@@ -107,6 +107,8 @@ rule species_data:
 rule prepare:
     """
     Target: prepare all base layers (habitat, masks, crosswalk).
+
+    TODO: The habitat layers list should come from parsing the crosswalk.
     """
     input:
         DATADIR / "crosswalk.csv",
