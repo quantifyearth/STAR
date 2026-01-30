@@ -128,12 +128,12 @@ rule validate_gbif_occurrences:
 # =============================================================================
 
 
-rule gbif_validation:
+rule occurrence_validation:
     """
     Target rule for running GBIF validation for all taxa.
 
     WARNING: This is expensive and will download gigabytes of data from GBIF.
-    Only run explicitly with: snakemake gbif_validation
+    Only run explicitly with: snakemake occurrence_validation
     """
     input:
         expand(str(DATADIR / "validation" / "occurrences" / "{taxa}.csv"), taxa=TAXA),
