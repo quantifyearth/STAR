@@ -25,6 +25,13 @@ def threat_processing_per_species(
         os.makedirs(output_directory_path, exist_ok=True)
 
         taxon_id = data.id_no[0]
+
+        # Due to validation we generate AOHs for many more species than
+        # is needed for STAR, but we need to ensure those don't slip into
+        # the pipeline
+        if bool(data.in_star[0]) is not True:
+            sys.exit(f"Species {taxon_id} should not be in star!")
+
         category_weight = int(data.category_weight[0])
         raw_threats = data.threats[0]
         threat_data = json.loads(raw_threats) if isinstance(raw_threats, str) else raw_threats
