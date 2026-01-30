@@ -279,7 +279,7 @@ def extract_data_per_species(
         # You can't do NOT IN on an empty list in SQL
         if excludes:
             exclude_statement = "AND assessments.sis_taxon_id NOT IN %s"
-            statement = MAIN_STATEMENT + exclude_statement + " LIMIT 100"
+            statement = MAIN_STATEMENT + exclude_statement
             cursor.execute(statement, (class_name, excludes))
         else:
             cursor.execute(MAIN_STATEMENT, (class_name,))
@@ -333,7 +333,7 @@ def main() -> None:
         required=False,
         default=None,
         dest="overrides",
-      )
+    )
     parser.add_argument(
         '--excludes',
         type=Path,
