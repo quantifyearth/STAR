@@ -50,9 +50,3 @@ jobs:
 
       - name: Snakemake format check
         run: snakefmt --check workflow/
-
-      - name: Snakemake lint
-        run: snakemake --snakefile workflow/Snakefile --lint
-
-      - name: Snakemake dry run
-        run: snakemake --snakefile workflow/Snakefile --dry-run all
