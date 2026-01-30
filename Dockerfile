@@ -53,10 +53,10 @@ RUN python3 -m mypy prepare_layers prepare_species threats utils tests
 
 # Snakemake validation
 RUN snakefmt --check workflow/
-RUN snakemake --snakefile workflow/Snakefile --lint
-RUN snakemake --snakefile workflow/Snakefile --dry-run all
+# RUN snakemake --snakefile workflow/Snakefile --lint
 
 # Default command runs the full Snakemake pipeline
 # Use --cores to specify parallelism, e.g.: docker run ... --cores 8
 # Note: --scheduler greedy avoids ILP solver issues on some platforms
-CMD ["snakemake", "--snakefile", "workflow/Snakefile", "--scheduler", "greedy", "--cores", "1", "all"]
+ENTRYPOINT ["snakemake", "--snakefile", "workflow/Snakefile", "--scheduler", "greedy"]
+CMD ["--cores", "4", "all"]

@@ -17,6 +17,7 @@ from pathlib import Path
 # Model Validation
 # =============================================================================
 
+
 rule model_validation:
     """
     Perform statistical validation of AOH models.
@@ -53,6 +54,7 @@ rule model_validation:
 # prevent rebuilds due to timestamp changes.
 #
 # For future: Could add logic to detect new species and only fetch those.
+
 
 rule fetch_gbif_data:
     """
@@ -99,8 +101,14 @@ rule validate_gbif_occurrences:
     output:
         validation=DATADIR / "validation" / "occurrences" / "{taxa}.csv",
     params:
-        gbif_data=lambda wildcards: DATADIR / "validation" / "occurrences" / wildcards.taxa,
-        species_data=lambda wildcards: DATADIR / "species-info" / wildcards.taxa / SCENARIO,
+        gbif_data=lambda wildcards: DATADIR
+        / "validation"
+        / "occurrences"
+        / wildcards.taxa,
+        species_data=lambda wildcards: DATADIR
+        / "species-info"
+        / wildcards.taxa
+        / SCENARIO,
         aoh_results=lambda wildcards: DATADIR / "aohs" / SCENARIO / wildcards.taxa,
     log:
         DATADIR / "logs" / "validate_gbif_{taxa}.log",
@@ -119,6 +127,7 @@ rule validate_gbif_occurrences:
 # GBIF Validation Target
 # =============================================================================
 
+
 rule gbif_validation:
     """
     Target rule for running GBIF validation for all taxa.
@@ -127,7 +136,4 @@ rule gbif_validation:
     Only run explicitly with: snakemake gbif_validation
     """
     input:
-        expand(
-            str(DATADIR / "validation" / "occurrences" / "{taxa}.csv"),
-            taxa=TAXA
-        ),
+        expand(str(DATADIR / "validation" / "occurrences" / "{taxa}.csv"), taxa=TAXA),

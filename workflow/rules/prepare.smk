@@ -20,6 +20,7 @@ from pathlib import Path
 # Crosswalk Table (normal dependency tracking)
 # =============================================================================
 
+
 rule convert_crosswalk:
     """
     Convert IUCN crosswalk to minimal common format.
@@ -38,6 +39,7 @@ rule convert_crosswalk:
 # =============================================================================
 # Mask Processing (precious - only if missing)
 # =============================================================================
+
 
 rule remove_nans_from_mask:
     """
@@ -59,6 +61,7 @@ rule remove_nans_from_mask:
 # =============================================================================
 # Habitat Layer Processing (precious - only if missing)
 # =============================================================================
+
 
 rule download_habitat:
     """
@@ -141,6 +144,7 @@ rule copy_islands_layer:
 # =============================================================================
 # Helper rule to get specific habitat layer
 # =============================================================================
+
 
 def get_habitat_layer(wildcards):
     """

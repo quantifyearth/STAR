@@ -1,6 +1,5 @@
 
 import argparse
-import json
 import logging
 import math
 import os
@@ -197,6 +196,10 @@ def process_row(
     # This is a fix as per the method to include the missing islands layer:
     habitats_list = sorted(list(habitats)) + ["islands"]
 
+    # GeoPandas will do the right thing JSON wise if we convert the
+    # threats from a list of tuples to a list of lists:
+    json_ready_threats = [[code, score] for (code, score) in threats]
+
     gdf = gpd.GeoDataFrame(
         [[
             id_no,
@@ -210,7 +213,7 @@ def process_row(
             scientific_name,
             family_name,
             class_name,
-            json.dumps(threats),
+            json_ready_threats,
             category,
             category_weight,
             geometry,
@@ -276,7 +279,7 @@ def extract_data_per_species(
         # You can't do NOT IN on an empty list in SQL
         if excludes:
             exclude_statement = "AND assessments.sis_taxon_id NOT IN %s"
-            statement = MAIN_STATEMENT + exclude_statement
+            statement = MAIN_STATEMENT + exclude_statement + " LIMIT 100"
             cursor.execute(statement, (class_name, excludes))
         else:
             cursor.execute(MAIN_STATEMENT, (class_name,))
@@ -330,7 +333,7 @@ def main() -> None:
         required=False,
         default=None,
         dest="overrides",
-    )
+      )
     parser.add_argument(
         '--excludes',
         type=Path,

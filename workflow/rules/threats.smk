@@ -23,6 +23,7 @@ from pathlib import Path
 # Helper Functions
 # =============================================================================
 
+
 def get_star_species_for_taxa(wildcards):
     """
     Get species IDs that should be included in STAR for a taxa.
@@ -30,20 +31,27 @@ def get_star_species_for_taxa(wildcards):
     - It has in_star=true in its GeoJSON
     - Its AOH raster exists (some species have no AOH due to no habitat overlap)
     """
-    # Wait for the checkpoint
-    checkpoint_output = checkpoints.extract_species_data.get(taxa=wildcards.taxa).output[0]
+    # Wait for species data checkpoint
+    checkpoint_output = checkpoints.extract_species_data.get(
+        taxa=wildcards.taxa
+    ).output[0]
     geojson_dir = Path(checkpoint_output).parent
+
+    # Wait for AOH checkpoint - this triggers DAG re-evaluation after AOHs complete
+    checkpoints.aggregate_aohs_per_taxa.get(taxa=wildcards.taxa)
 
     star_species = []
     for geojson_path in geojson_dir.glob("*.geojson"):
         species_id = geojson_path.stem
-        aoh_path = DATADIR / "aohs" / SCENARIO / wildcards.taxa / f"{species_id}_all.tif"
+        aoh_path = (
+            DATADIR / "aohs" / SCENARIO / wildcards.taxa / f"{species_id}_all.tif"
+        )
 
         # Check if species should be in STAR and has an AOH
         try:
-            with open(geojson_path, 'r') as f:
+            with open(geojson_path, "r") as f:
                 data = json.load(f)
-            if data['features'][0]['properties'].get('in_star', False):
+            if data["features"][0]["properties"].get("in_star", False):
                 # Only include if AOH TIF actually exists
                 if aoh_path.exists():
                     star_species.append(species_id)
@@ -68,6 +76,7 @@ def get_threat_raster_sentinels_for_taxa(wildcards):
 # Per-Species Threat Raster Generation
 # =============================================================================
 
+
 rule generate_threat_rasters:
     """
     Generate threat rasters for a single species.
@@ -78,7 +87,11 @@ rule generate_threat_rasters:
     """
     input:
         # Species data and AOH
-        species_data=DATADIR / "species-info" / "{taxa}" / SCENARIO / "{species_id}.geojson",
+        species_data=DATADIR
+        / "species-info"
+        / "{taxa}"
+        / SCENARIO
+        / "{species_id}.geojson",
         aoh=DATADIR / "aohs" / SCENARIO / "{taxa}" / "{species_id}_all.tif",
     output:
         # Sentinel file since actual outputs depend on species' threats
@@ -97,15 +110,16 @@ rule generate_threat_rasters:
 # Per-Taxa Threat Raster Aggregation
 # =============================================================================
 
+
 rule aggregate_threat_rasters_per_taxa:
     """
     Aggregate rule that ensures all threat rasters for a taxa are generated.
     Only processes species with in_star=true.
+
+    Note: AOH completion is enforced via checkpoint in get_threat_raster_sentinels_for_taxa.
     """
     input:
-        # AOHs must be complete first
-        aoh_sentinel=DATADIR / "aohs" / SCENARIO / "{taxa}" / ".complete",
-        # All threat rasters for STAR species
+        # All threat rasters for STAR species (implicitly waits for AOH checkpoint)
         sentinels=get_threat_raster_sentinels_for_taxa,
     output:
         sentinel=DATADIR / "threat_rasters" / "{taxa}" / ".complete",
@@ -122,8 +136,7 @@ rule all_threat_rasters:
     """
     input:
         sentinels=expand(
-            str(DATADIR / "threat_rasters" / "{taxa}" / ".complete"),
-            taxa=TAXA
+            str(DATADIR / "threat_rasters" / "{taxa}" / ".complete"), taxa=TAXA
         ),
     output:
         sentinel=DATADIR / "threat_rasters" / ".all_complete",
@@ -134,6 +147,7 @@ rule all_threat_rasters:
 # =============================================================================
 # Threat Summation
 # =============================================================================
+
 
 rule threat_summation:
     """

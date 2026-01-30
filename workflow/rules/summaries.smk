@@ -16,6 +16,7 @@ from pathlib import Path
 # Species Richness
 # =============================================================================
 
+
 rule species_richness:
     """
     Calculate species richness from all AOH rasters.
@@ -51,6 +52,7 @@ rule species_richness:
 # =============================================================================
 # Endemism
 # =============================================================================
+
 
 rule endemism:
     """

@@ -15,6 +15,7 @@ from pathlib import Path
 # Version Sentinel for AOH Code
 # =============================================================================
 
+
 rule aoh_version_sentinel:
     """
     Create a version sentinel that tracks the aoh package version.
@@ -30,14 +31,13 @@ rule aoh_version_sentinel:
         # Get aoh package version
         try:
             result = subprocess.run(
-                ["aoh-calc", "--version"],
-                capture_output=True, text=True, check=True
+                ["aoh-calc", "--version"], capture_output=True, text=True, check=True
             )
             aoh_version = result.stdout.strip()
         except Exception:
             aoh_version = "unknown"
 
-        with open(output.sentinel, 'w') as f:
+        with open(output.sentinel, "w") as f:
             f.write(f"aoh: {aoh_version}\n")
 
 
@@ -45,24 +45,32 @@ rule aoh_version_sentinel:
 # Per-Species AOH Generation
 # =============================================================================
 
+
 def aoh_species_inputs(wildcards):
-  """Return inputs for generate_aoh, including birdlife sentinel for AVES."""
-  inputs = {
-      "species_data": DATADIR / "species-info" / wildcards.taxa / SCENARIO / f"{wildcards.species_id}.geojson",
+    """Return inputs for generate_aoh, including birdlife sentinel for AVES."""
+    inputs = {
+        "species_data": DATADIR
+        / "species-info"
+        / wildcards.taxa
+        / SCENARIO
+        / f"{wildcards.species_id}.geojson",
+        # Base layers (precious - won't trigger rebuilds)
+        "habitat_sentinel": ancient(
+            DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete"
+        ),
+        "crosswalk": DATADIR / "crosswalk.csv",
+        "mask": ancient(DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif"),
+        "elevation_max": ancient(DATADIR / "Zenodo" / "FABDEM_1km_max_patched.tif"),
+        "elevation_min": ancient(DATADIR / "Zenodo" / "FABDEM_1km_min_patched.tif"),
+        # Version sentinel for code-sensitive rebuilds
+        "version_sentinel": DATADIR / ".sentinels" / "aoh_version.txt",
+    }
+    if wildcards.taxa == "AVES":
+        inputs["birdlife_applied"] = (
+            DATADIR / "species-info" / "AVES" / ".birdlife_applied"
+        )
+    return inputs
 
-      # Base layers (precious - won't trigger rebuilds)
-      "habitat_sentinel": ancient(DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete"),
-      "crosswalk": DATADIR / "crosswalk.csv",
-      "mask": ancient(DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif"),
-      "elevation_max": ancient(DATADIR / "Zenodo" / "FABDEM_1km_max_patched.tif"),
-      "elevation_min": ancient(DATADIR / "Zenodo" / "FABDEM_1km_min_patched.tif"),
-
-      # Version sentinel for code-sensitive rebuilds
-      "version_sentinel": DATADIR / ".sentinels" / "aoh_version.txt",
-  }
-  if wildcards.taxa == "AVES":
-      inputs["birdlife_applied"] = DATADIR / "species-info" / "AVES" / ".birdlife_applied"
-  return inputs
 
 rule generate_aoh:
     """
@@ -106,13 +114,16 @@ rule generate_aoh:
 # Per-Taxa AOH Aggregation
 # =============================================================================
 
+
 def get_species_ids_for_taxa(wildcards):
     """
     Get all species IDs for a taxa by reading the checkpoint output.
     Returns list of species IDs (GeoJSON file stems).
     """
     # Wait for the checkpoint to complete
-    checkpoint_output = checkpoints.extract_species_data.get(taxa=wildcards.taxa).output[0]
+    checkpoint_output = checkpoints.extract_species_data.get(
+        taxa=wildcards.taxa
+    ).output[0]
     geojson_dir = Path(checkpoint_output).parent
     return [p.stem for p in geojson_dir.glob("*.geojson")]
 
@@ -128,10 +139,14 @@ def get_all_aoh_metadata_for_taxa(wildcards):
     ]
 
 
-rule aggregate_aohs_per_taxa:
+checkpoint aggregate_aohs_per_taxa:
     """
-    Aggregate rule that ensures all AOHs for a taxa are generated.
+    Checkpoint that ensures all AOHs for a taxa are generated.
     Creates a sentinel file when complete.
+
+    This is a checkpoint (not a rule) so that downstream rules like
+    threat processing can re-evaluate the DAG after AOHs are created,
+    allowing them to see which AOH files actually exist.
     """
     input:
         # Only depend on JSON metadata (always created), not TIFs (optional)
@@ -144,9 +159,11 @@ rule aggregate_aohs_per_taxa:
         touch {output.sentinel}
         """
 
+
 # =============================================================================
 # Collate AOH Data
 # =============================================================================
+
 
 rule collate_aoh_data:
     """
@@ -161,8 +178,7 @@ rule collate_aoh_data:
     input:
         # All AOHs must be complete
         sentinels=expand(
-            str(DATADIR / "aohs" / SCENARIO / "{taxa}" / ".complete"),
-            taxa=TAXA
+            str(DATADIR / "aohs" / SCENARIO / "{taxa}" / ".complete"), taxa=TAXA
         ),
         # Version tracking
         version_sentinel=DATADIR / ".sentinels" / "aoh_version.txt",

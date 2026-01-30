@@ -26,7 +26,8 @@ def threat_processing_per_species(
 
         taxon_id = data.id_no[0]
         category_weight = int(data.category_weight[0])
-        threat_data = json.loads(data.threats[0])
+        raw_threats = data.threats[0]
+        threat_data = json.loads(raw_threats) if isinstance(raw_threats, str) else raw_threats
 
         try:
             aoh_data_path = aoh_path.with_suffix(".json")

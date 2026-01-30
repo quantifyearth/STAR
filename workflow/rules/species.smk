@@ -15,6 +15,7 @@ from pathlib import Path
 # Version Sentinel for Code-Sensitive Dependencies
 # =============================================================================
 
+
 rule species_version_sentinel:
     """
     Create a version sentinel that tracks changes to species extraction code.
@@ -35,20 +36,19 @@ rule species_version_sentinel:
         # Hash the tracked scripts
         hashes = []
         for f in input:
-            with open(f, 'rb') as fh:
+            with open(f, "rb") as fh:
                 hashes.append(hashlib.sha256(fh.read()).hexdigest()[:12])
 
-        # Get aoh package version
+                # Get aoh package version
         try:
             result = subprocess.run(
-                ["aoh-calc", "--version"],
-                capture_output=True, text=True, check=True
+                ["aoh-calc", "--version"], capture_output=True, text=True, check=True
             )
             aoh_version = result.stdout.strip()
         except Exception:
             aoh_version = "unknown"
 
-        with open(output.sentinel, 'w') as f:
+        with open(output.sentinel, "w") as f:
             f.write(f"scripts: {','.join(hashes)}\n")
             f.write(f"aoh: {aoh_version}\n")
 
@@ -56,6 +56,7 @@ rule species_version_sentinel:
 # =============================================================================
 # Species Data Extraction (Checkpoint)
 # =============================================================================
+
 
 checkpoint extract_species_data:
     """
@@ -71,7 +72,7 @@ checkpoint extract_species_data:
     input:
         # Code version sentinel for rebuild tracking
         version_sentinel=DATADIR / ".sentinels" / "species_code_version.txt",
-        excludes=DATADIR / config['optional_inputs']['species_excludes'],
+        excludes=DATADIR / config["optional_inputs"]["species_excludes"],
     output:
         # The report.csv is the known output; GeoJSON files are dynamic
         report=DATADIR / "species-info" / "{taxa}" / SCENARIO / "report.csv",
@@ -99,6 +100,7 @@ checkpoint extract_species_data:
 # =============================================================================
 # BirdLife Elevation Overrides (Optional)
 # =============================================================================
+
 
 rule apply_birdlife_overrides:
     """

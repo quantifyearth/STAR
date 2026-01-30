@@ -23,8 +23,10 @@ from pathlib import Path
 # Allow GDAL/OGR to handle large GeoJSON objects
 os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
 
+
 # Load configuration
 configfile: "config/config.yaml"
+
 
 # Data directory from environment variable
 DATADIR = Path(os.environ.get("DATADIR", "/data"))
@@ -35,6 +37,7 @@ SCENARIO = config["scenario"]
 
 # Source directory (where this repo lives)
 SRCDIR = Path(workflow.basedir).parent
+
 
 # Include rule modules
 include: "rules/prepare.smk"
@@ -48,6 +51,7 @@ include: "rules/validation.smk"
 # =============================================================================
 # Target Rules
 # =============================================================================
+
 
 rule all:
     """
@@ -96,7 +100,7 @@ rule species_data:
         DATADIR / "species-info" / "AVES" / ".birdlife_applied",
         expand(
             str(DATADIR / "species-info" / "{taxa}" / SCENARIO / "report.csv"),
-            taxa=TAXA
+            taxa=TAXA,
         ),
 
 
@@ -109,7 +113,7 @@ rule prepare:
         DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif",
         expand(
             str(DATADIR / "habitat_layers" / SCENARIO / "lcc_{n}.tif"),
-            n=range(0, 127)  # Habitat layer codes
+            n=range(0, 127),  # Habitat layer codes
         ),
 
 
@@ -125,11 +129,14 @@ rule validation:
 # Utility Functions
 # =============================================================================
 
+
 def get_all_species_geojsons(wildcards):
     """
     Return all species GeoJSON files for a given taxa.
     Used for checkpoint-based dependency resolution.
     """
-    checkpoint_output = checkpoints.extract_species_data.get(taxa=wildcards.taxa).output[0]
+    checkpoint_output = checkpoints.extract_species_data.get(
+        taxa=wildcards.taxa
+    ).output[0]
     geojson_dir = DATADIR / "species-info" / wildcards.taxa / SCENARIO
     return list(geojson_dir.glob("*.geojson"))
