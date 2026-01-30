@@ -4,53 +4,6 @@
 # These rules handle extracting species data from the IUCN PostgreSQL database.
 # Species extraction is a checkpoint because the number of output files
 # (one GeoJSON per species) is only known after extraction completes.
-#
-# Code-sensitive: These rules should rebuild if the extraction scripts change.
-
-import os
-from pathlib import Path
-
-
-# =============================================================================
-# Version Sentinel for Code-Sensitive Dependencies
-# =============================================================================
-
-
-rule species_version_sentinel:
-    """
-    Create a version sentinel that tracks changes to species extraction code.
-    Downstream rules depend on this to trigger rebuilds when code changes.
-    """
-    input:
-        # Track the extraction scripts
-        script1=SRCDIR / "prepare_species" / "extract_species_data_psql.py",
-        script2=SRCDIR / "prepare_species" / "common.py",
-    output:
-        sentinel=DATADIR / ".sentinels" / "species_code_version.txt",
-    run:
-        import hashlib
-        import subprocess
-
-        os.makedirs(os.path.dirname(output.sentinel), exist_ok=True)
-
-        # Hash the tracked scripts
-        hashes = []
-        for f in input:
-            with open(f, "rb") as fh:
-                hashes.append(hashlib.sha256(fh.read()).hexdigest()[:12])
-
-                # Get aoh package version
-        try:
-            result = subprocess.run(
-                ["aoh-calc", "--version"], capture_output=True, text=True, check=True
-            )
-            aoh_version = result.stdout.strip()
-        except Exception:
-            aoh_version = "unknown"
-
-        with open(output.sentinel, "w") as f:
-            f.write(f"scripts: {','.join(hashes)}\n")
-            f.write(f"aoh: {aoh_version}\n")
 
 
 # =============================================================================
@@ -70,8 +23,6 @@ checkpoint extract_species_data:
         DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
     """
     input:
-        # Code version sentinel for rebuild tracking
-        version_sentinel=DATADIR / ".sentinels" / "species_code_version.txt",
         excludes=DATADIR / config["optional_inputs"]["species_excludes"],
     output:
         # The report.csv is the known output; GeoJSON files are dynamic
@@ -80,21 +31,12 @@ checkpoint extract_species_data:
         classname="{taxa}",
         output_dir=lambda wildcards: DATADIR / "species-info" / wildcards.taxa,
         projection=config["projection"],
-    log:
-        DATADIR / "logs" / "extract_species_{taxa}.log",
     resources:
-        # Serialize DB access - only one extraction script at a time
+        # Serialise DB access scripts - only one extraction script at a time
         # as it will make many concurrent connections internally
         db_connections=1,
-    shell:
-        """
-        python3 {SRCDIR}/prepare_species/extract_species_data_psql.py \
-            --class {params.classname} \
-            --output {params.output_dir} \
-            --projection "{params.projection}" \
-            --excludes {input.excludes} \
-            2>&1 | tee {log}
-        """
+    script:
+        str(SRCDIR / "prepare_species" / "extract_species_data_psql.py")
 
 
 # =============================================================================
@@ -105,24 +47,17 @@ checkpoint extract_species_data:
 rule apply_birdlife_overrides:
     """
     Apply BirdLife elevation data overrides to AVES species.
-
-    This rule only runs if the BirdLife elevations file exists.
-    It modifies GeoJSON files in-place.
     """
     input:
+        # The report isn't read, but acts as a sentinel that the birds
+        # species extraction has completed.
         report=DATADIR / "species-info" / "AVES" / SCENARIO / "report.csv",
         overrides=DATADIR / config["optional_inputs"]["birdlife_elevations"],
     output:
+        # Unlike other taxa, the AOH stage needs to wait for the data to be
+        # applied, so we use this sentinel to indicate that.
         sentinel=DATADIR / "species-info" / "AVES" / ".birdlife_applied",
     params:
         geojson_dir=DATADIR / "species-info",
-    log:
-        DATADIR / "logs" / "apply_birdlife_overrides.log",
-    shell:
-        """
-        python3 {SRCDIR}/prepare_species/apply_birdlife_data.py \
-            --geojsons {params.geojson_dir} \
-            --overrides {input.overrides} \
-            2>&1 | tee {log}
-        touch {output.sentinel}
-        """
+    script:
+        str(SRCDIR / "prepare_species" / "apply_birdlife_data.py")

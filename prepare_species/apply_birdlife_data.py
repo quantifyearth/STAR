@@ -1,5 +1,6 @@
 import argparse
 import math
+import os
 from pathlib import Path
 
 import aoh
@@ -25,6 +26,7 @@ from snakemake_argparse_bridge import snakemake_compatible
 def apply_birdlife_data(
     geojson_directory_path: Path,
     overrides_path: Path,
+    sentinel_path: Path | None,
 ) -> None:
     overrides = pd.read_csv(overrides_path, encoding="latin1")
 
@@ -52,9 +54,17 @@ def apply_birdlife_data(
         res = gpd.GeoDataFrame(data.to_frame().transpose(), crs=species_info.crs, geometry="geometry")
         res.to_file(path, driver="GeoJSON")
 
+    # This script modifies the GeoJSON files, but snakemake needs one
+    # output to say when this is done, so if we're in snakemake mode we touch a sentinel file to
+    # let it know we've done. One day this should be another decorator.
+    if sentinel_path is not None:
+        os.makedirs(sentinel_path.parent, exist_ok=True)
+        sentinel_path.touch()
+
 @snakemake_compatible(mapping={
     "geojson_directory_path": "params.geojson_dir",
     "overrides": "input.overrides",
+    "sentinel_path": "output.sentinel",
 })
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
@@ -72,11 +82,20 @@ def main() -> None:
         required=True,
         dest="overrides",
     )
+    parser.add_argument(
+        '--sentinel',
+        type=Path,
+        help='Generate a sentinel file on completion for snakemake to track',
+        required=False,
+        default=None,
+        dest='sentinel_path',
+    )
     args = parser.parse_args()
 
     apply_birdlife_data(
         args.geojson_directory_path,
-        args.overrides
+        args.overrides,
+        args.sentinel_path,
     )
 
 if __name__ == "__main__":

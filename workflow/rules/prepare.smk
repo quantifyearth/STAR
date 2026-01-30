@@ -30,8 +30,6 @@ rule convert_crosswalk:
         original=SRCDIR / "data" / "crosswalk_bin_T.csv",
     output:
         crosswalk=DATADIR / "crosswalk.csv",
-    log:
-        DATADIR / "logs" / "convert_crosswalk.log",
     script:
         str(SRCDIR / "prepare_layers" / "convert_crosswalk.py")
 

@@ -58,7 +58,7 @@ def threat_processing_per_species(
             per_threat_per_species_score.to_geotiff(output_path)
 
     # This script generates a bunch of rasters, but snakemake needs one
-    # output to say when done, so if we're in snakemake mode we touch a sentinel file to
+    # output to say when this is done, so if we're in snakemake mode we touch a sentinel file to
     # let it know we've done. One day this should be another decorator.
     if sentinel_path is not None:
         os.makedirs(sentinel_path.parent, exist_ok=True)

@@ -10,8 +10,6 @@
 # The GBIF validation is treated as "precious" - it will only run if the
 # output doesn't exist. This is because GBIF downloads can take hours.
 
-import os
-from pathlib import Path
 
 # =============================================================================
 # Model Validation
@@ -20,7 +18,7 @@ from pathlib import Path
 
 rule model_validation:
     """
-    Perform statistical validation of AOH models.
+    Perform statistical validation of AOH models based on Dahal et al.
 
     This runs a statistical analysis of the AOH outputs to assess
     model quality. Requires R with lme4 and lmerTest packages.
@@ -46,31 +44,26 @@ rule model_validation:
 
 
 # =============================================================================
-# GBIF Validation (PRECIOUS)
+# Occurrence Validation (EXPENSIVE!)
 # =============================================================================
 #
-# GBIF validation is expensive (hours of download time) and should only be
-# regenerated if the output is explicitly deleted. We use 'ancient()' to
-# prevent rebuilds due to timestamp changes.
-#
-# For future: Could add logic to detect new species and only fetch those.
+# GBIF based occurrence validation is expensive (hours of download time) and
+# should only be regenerated if the output is explicitly deleted.
 
 
 rule fetch_gbif_data:
     """
     Fetch GBIF occurrence data for a taxa.
 
-    PRECIOUS: This rule is expensive (hours of downloads) and will only
-    run if the output doesn't exist. It won't rebuild due to code changes.
+    This rule is expensive (hours of downloads) and will only run if the output
+    doesn't exist. It won't rebuild due to code changes.
 
     Environment variables required:
         GBIF_USERNAME, GBIF_EMAIL, GBIF_PASSWORD
     """
     input:
-        # Use ancient() to prevent rebuilds
         collated=ancient(DATADIR / "validation" / "aohs.csv"),
     output:
-        # The output is a directory, we use a sentinel
         sentinel=DATADIR / "validation" / "occurrences" / ".{taxa}_fetched",
     params:
         output_dir=DATADIR / "validation" / "occurrences",
@@ -78,7 +71,6 @@ rule fetch_gbif_data:
         DATADIR / "logs" / "fetch_gbif_{taxa}.log",
     shell:
         """
-        mkdir -p {params.output_dir}
         aoh-fetch-gbif-data \
             --collated_aoh_data {input.collated} \
             --taxa {wildcards.taxa} \
@@ -92,7 +84,7 @@ rule validate_gbif_occurrences:
     """
     Validate AOH models against GBIF occurrence data.
 
-    PRECIOUS: Depends on GBIF data which is expensive to fetch.
+    Depends on GBIF data which is expensive to fetch.
     """
     input:
         gbif_sentinel=DATADIR / "validation" / "occurrences" / ".{taxa}_fetched",
@@ -124,7 +116,7 @@ rule validate_gbif_occurrences:
 
 
 # =============================================================================
-# GBIF Validation Target
+# Occurrence Validation Target
 # =============================================================================
 
 

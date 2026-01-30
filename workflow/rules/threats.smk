@@ -11,10 +11,7 @@
 #    - Level 2: Sum by threat code prefix (e.g., 1.1, 1.2)
 #    - Level 1: Sum by major threat (e.g., 1, 2)
 #    - Level 0: Sum all threats (final STAR map)
-#
-# Code-sensitive: These rules rebuild if threat scripts change.
 
-import os
 import json
 from pathlib import Path
 
