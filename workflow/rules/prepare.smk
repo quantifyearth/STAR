@@ -27,7 +27,7 @@ rule convert_crosswalk:
     This is fast to regenerate so uses normal dependency tracking.
     """
     input:
-        original=SRCDIR / "data" / "crosswalk_bin_T.csv",
+        original=SRCDIR / config["inputs"]["crosswalk_source"],
     output:
         crosswalk=DATADIR / "crosswalk.csv",
     script:
@@ -47,11 +47,9 @@ rule remove_nans_from_mask:
     The rule won't trigger rebuilds due to code changes.
     """
     input:
-        original=ancient(DATADIR / "Zenodo" / "CGLS100Inland_withGADMIslands.tif"),
+        original=ancient(DATADIR / config["inputs"]["zenodo_mask"]),
     output:
         mask=DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif",
-    log:
-        DATADIR / "logs" / "remove_nans_from_mask.log",
     script:
         str(SRCDIR / "prepare_layers" / "remove_nans_from_mask.py")
 
@@ -126,7 +124,7 @@ rule copy_islands_layer:
     This is lcc_0.tif which represents island areas.
     """
     input:
-        islands=ancient(DATADIR / "Zenodo" / "MissingLandcover_1km_cover.tif"),
+        islands=ancient(DATADIR / config["inputs"]["zenodo_islands"]),
         # Ensure habitat processing is done first
         habitat_sentinel=DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete",
     output:

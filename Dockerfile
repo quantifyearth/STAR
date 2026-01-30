@@ -55,8 +55,12 @@ RUN python3 -m mypy prepare_layers prepare_species threats utils tests
 RUN snakefmt --check workflow/
 # RUN snakemake --snakefile workflow/Snakefile --lint
 
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Default command runs the full Snakemake pipeline
 # Use --cores to specify parallelism, e.g.: docker run ... --cores 8
-# Note: --scheduler greedy avoids ILP solver issues on some platforms
-ENTRYPOINT ["snakemake", "--snakefile", "workflow/Snakefile", "--scheduler", "greedy"]
+# Logs are written to $DATADIR/logs/ and .snakemake/ metadata is stored in $DATADIR/
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["--cores", "4", "all"]

@@ -27,15 +27,15 @@ def get_star_species_for_taxa(wildcards):
     A species is included if:
     - It has in_star=true in its GeoJSON
     - Its AOH raster exists (some species have no AOH due to no habitat overlap)
+
+    Note: This function assumes AOHs are already generated. The caller
+    (aggregate_threat_rasters_inputs) ensures this via checkpoint dependency.
     """
-    # Wait for species data checkpoint
+    # Get species data directory from checkpoint
     checkpoint_output = checkpoints.extract_species_data.get(
         taxa=wildcards.taxa
     ).output[0]
     geojson_dir = Path(checkpoint_output).parent
-
-    # Wait for AOH checkpoint - this triggers DAG re-evaluation after AOHs complete
-    checkpoints.aggregate_aohs_per_taxa.get(taxa=wildcards.taxa)
 
     star_species = []
     for geojson_path in geojson_dir.glob("*.geojson"):
@@ -108,16 +108,29 @@ rule generate_threat_rasters:
 # =============================================================================
 
 
+def aggregate_threat_rasters_inputs(wildcards):
+    """
+    Return inputs for aggregate_threat_rasters_per_taxa.
+    Explicitly includes AOH checkpoint to ensure AOHs are generated first.
+    """
+    # Get the AOH checkpoint output - this forces Snakemake to wait for AOHs
+    aoh_checkpoint = checkpoints.aggregate_aohs_per_taxa.get(
+        taxa=wildcards.taxa
+    ).output[0]
+
+    return {
+        "aoh_complete": aoh_checkpoint,
+        "sentinels": get_threat_raster_sentinels_for_taxa(wildcards),
+    }
+
+
 rule aggregate_threat_rasters_per_taxa:
     """
     Aggregate rule that ensures all threat rasters for a taxa are generated.
     Only processes species with in_star=true.
-
-    Note: AOH completion is enforced via checkpoint in get_threat_raster_sentinels_for_taxa.
     """
     input:
-        # All threat rasters for STAR species (implicitly waits for AOH checkpoint)
-        sentinels=get_threat_raster_sentinels_for_taxa,
+        unpack(aggregate_threat_rasters_inputs),
     output:
         sentinel=DATADIR / "threat_rasters" / "{taxa}" / ".complete",
     shell:

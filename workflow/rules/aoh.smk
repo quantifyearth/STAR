@@ -60,8 +60,8 @@ def aoh_species_inputs(wildcards):
         ),
         "crosswalk": DATADIR / "crosswalk.csv",
         "mask": ancient(DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif"),
-        "elevation_max": ancient(DATADIR / "Zenodo" / "FABDEM_1km_max_patched.tif"),
-        "elevation_min": ancient(DATADIR / "Zenodo" / "FABDEM_1km_min_patched.tif"),
+        "elevation_max": ancient(DATADIR / config["inputs"]["zenodo_elevation_max"]),
+        "elevation_min": ancient(DATADIR / config["inputs"]["zenodo_elevation_min"]),
         # Version sentinel for code-sensitive rebuilds
         "version_sentinel": DATADIR / ".sentinels" / "aoh_version.txt",
     }

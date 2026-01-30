@@ -23,9 +23,12 @@ from pathlib import Path
 # Allow GDAL/OGR to handle large GeoJSON objects
 os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
 
+# Source directory (where this repo lives)
+SRCDIR = Path(workflow.basedir).parent
+
 
 # Load configuration
-configfile: "config/config.yaml"
+configfile: SRCDIR / "config/config.yaml"
 
 
 # Data directory from environment variable
@@ -34,9 +37,6 @@ DATADIR = Path(os.environ.get("DATADIR", "/data"))
 # Taxa list from config
 TAXA = config["taxa"]
 SCENARIO = config["scenario"]
-
-# Source directory (where this repo lives)
-SRCDIR = Path(workflow.basedir).parent
 
 
 # Include rule modules
