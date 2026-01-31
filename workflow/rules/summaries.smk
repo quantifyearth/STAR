@@ -27,6 +27,7 @@ rule species_richness:
         richness=DATADIR / "summaries" / "species_richness.tif",
     params:
         aohs_folder=DATADIR / "aohs" / SCENARIO,
+    threads: workflow.cores
     log:
         DATADIR / "logs" / "species_richness.log",
     shell:
@@ -58,6 +59,7 @@ rule endemism:
         endemism=DATADIR / "summaries" / "endemism.tif",
     params:
         aohs_folder=DATADIR / "aohs" / SCENARIO,
+    threads: workflow.cores
     log:
         DATADIR / "logs" / "endemism.log",
     shell:
