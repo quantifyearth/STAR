@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import yirgacheffe as yg
+from snakemake_argparse_bridge import snakemake_compatible
 
 def remove_nans_from_mask(
     input_path: Path,
@@ -13,6 +14,10 @@ def remove_nans_from_mask(
         converted = layer.nan_to_num()
         converted.to_geotiff(output_path)
 
+@snakemake_compatible(mapping={
+    "original_path": "input.original",
+    "output_path": "output.mask",
+})
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convert NaNs to zeros in mask layers")
     parser.add_argument(

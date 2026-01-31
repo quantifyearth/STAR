@@ -51,7 +51,6 @@ The script will:
 """
 
 import argparse
-import json
 import logging
 import os
 import sys
@@ -245,6 +244,10 @@ def process_species(
 
     habitats_list = list(habitats) + ["islands"]
 
+    # GeoPandas will do the right thing JSON wise if we convert the
+    # threats from a list of tuples to a list of lists:
+    json_ready_threats = [[code, score] for (code, score) in threats]
+
     # Create GeoDataFrame with all data
     gdf = gpd.GeoDataFrame(
         [[
@@ -259,7 +262,7 @@ def process_species(
             scientific_name,
             family_name,
             class_name,
-            json.dumps(threats),
+            json_ready_threats,
             category,
             CATEGORY_WEIGHTS[category],
             geometry

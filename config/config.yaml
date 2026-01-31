@@ -1,0 +1,37 @@
+# STAR Pipeline Configuration
+# ===========================
+
+# Taxonomic classes to process
+taxa:
+  - AMPHIBIA
+  - AVES
+  - MAMMALIA
+  - REPTILIA
+
+# Scenario for habitat layers (for future expansion)
+scenario: current
+
+# Projection used throughout the pipeline
+projection: "ESRI:54009"
+
+# Scale for habitat processing (meters)
+habitat_scale: 992.292720200000133
+
+# Input data files (relative to datadir)
+# These are expected to be pre-downloaded in the Zenodo subfolder
+inputs:
+  zenodo_mask: "Zenodo/CGLS100Inland_withGADMIslands.tif"
+  zenodo_elevation_max: "Zenodo/FABDEM_1km_max_patched.tif"
+  zenodo_elevation_min: "Zenodo/FABDEM_1km_min_patched.tif"
+  zenodo_islands: "Zenodo/MissingLandcover_1km_cover.tif"
+  crosswalk_source: "data/crosswalk_bin_T.csv"
+
+# Optional input files (pipeline will check if these exist)
+optional_inputs:
+  birdlife_elevations: "BL_Species_Elevations_2023.csv"
+  species_excludes: "SpeciesList_generalisedRangePolygons.csv"
+
+# Zenodo configuration for downloading raw habitat
+zenodo:
+  habitat_id: 3939050
+  habitat_filename: "PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif"

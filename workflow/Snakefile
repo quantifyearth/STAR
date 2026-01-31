@@ -1,0 +1,144 @@
+# STAR Pipeline - Snakemake Workflow
+# ===================================
+#
+# This workflow implements the STAR (Species Threat Abatement and Recovery)
+# methodology from the IUCN. It processes species data, generates Area of
+# Habitat (AoH) rasters, and produces threat-weighted biodiversity maps.
+#
+# Usage:
+#   snakemake --cores N all
+#   snakemake --cores N validation
+#   snakemake --cores N threats
+#
+# Environment variables required:
+#   DATADIR - Directory for input/output data
+#   DB_HOST, DB_NAME, DB_USER, DB_PASSWORD - PostgreSQL credentials
+#
+# For GBIF validation (optional):
+#   GBIF_USERNAME, GBIF_EMAIL, GBIF_PASSWORD
+
+import os
+from pathlib import Path
+
+# Allow GDAL/OGR to handle large GeoJSON objects
+os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
+
+# Source directory (where this repo lives)
+SRCDIR = Path(workflow.basedir).parent
+
+
+# Load configuration
+configfile: SRCDIR / "config/config.yaml"
+
+
+# Data directory from environment variable
+DATADIR = Path(os.environ.get("DATADIR", "/data"))
+
+# Taxa list from config
+TAXA = config["taxa"]
+SCENARIO = config["scenario"]
+
+
+# Include rule modules
+include: "rules/prepare.smk"
+include: "rules/species.smk"
+include: "rules/aoh.smk"
+include: "rules/summaries.smk"
+include: "rules/threats.smk"
+include: "rules/validation.smk"
+
+
+# =============================================================================
+# Target Rules
+# =============================================================================
+
+
+rule all:
+    """
+    Default target: run the complete STAR pipeline including validation.
+    """
+    input:
+        # Final STAR output
+        DATADIR / "threat_results" / "level0" / "top.tif",
+        # Summaries
+        DATADIR / "summaries" / "species_richness.tif",
+        DATADIR / "summaries" / "endemism.tif",
+        # Model validation
+        DATADIR / "validation" / "model_validation.csv",
+
+
+rule threats:
+    """
+    Target: generate threat results without validation.
+    """
+    input:
+        DATADIR / "threat_results" / "level0" / "top.tif",
+
+
+rule summaries:
+    """
+    Target: generate species richness and endemism maps.
+    """
+    input:
+        DATADIR / "summaries" / "species_richness.tif",
+        DATADIR / "summaries" / "endemism.tif",
+
+
+rule aohs:
+    """
+    Target: generate all AoH rasters.
+    """
+    input:
+        DATADIR / "validation" / "aohs.csv",
+
+
+rule species_data:
+    """
+    Target: extract species data from PostgreSQL.
+    """
+    input:
+        DATADIR / "species-info" / "AVES" / ".birdlife_applied",
+        expand(
+            str(DATADIR / "species-info" / "{taxa}" / SCENARIO / "report.csv"),
+            taxa=TAXA,
+        ),
+
+
+rule prepare:
+    """
+    Target: prepare all base layers (habitat, masks, crosswalk).
+
+    TODO: The habitat layers list should come from parsing the crosswalk.
+    """
+    input:
+        DATADIR / "crosswalk.csv",
+        DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif",
+        expand(
+            str(DATADIR / "habitat_layers" / SCENARIO / "lcc_{n}.tif"),
+            n=range(0, 127),  # Habitat layer codes
+        ),
+
+
+rule validation:
+    """
+    Target: run model validation (excludes occurrence validation by default which is expensive).
+    """
+    input:
+        DATADIR / "validation" / "model_validation.csv",
+
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+
+def get_all_species_geojsons(wildcards):
+    """
+    Return all species GeoJSON files for a given taxa.
+    Used for checkpoint-based dependency resolution.
+    """
+    checkpoint_output = checkpoints.extract_species_data.get(
+        taxa=wildcards.taxa
+    ).output[0]
+    geojson_dir = DATADIR / "species-info" / wildcards.taxa / SCENARIO
+    return list(geojson_dir.glob("*.geojson"))

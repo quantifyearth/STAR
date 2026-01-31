@@ -9,7 +9,13 @@ scikit-image
 redlistapi
 boto3
 yirgacheffe>=1.12,<2.0
-aoh[validation]>=2.0.2,<3.0
+aoh[validation]>=2.0.3,<3.0
+
+# Snakemake workflow management
+snakemake>=8.0
+# We require a bug fix on this package that isn't yet upstream
+snakemake-argparse-bridge @ git+https://github.com/mdales/snakemake-argparse-bridge@77ac272d0bc22c370aeb9d1670882fd9dac9b098
+
 
 # GDAL should be installed manually to match the version of the library installed on your machine
 gdal[numpy]

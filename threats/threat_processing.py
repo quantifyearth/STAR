@@ -7,11 +7,13 @@ from pathlib import Path
 import geopandas as gpd
 import yirgacheffe as yg
 from pyogrio.errors import DataSourceError
+from snakemake_argparse_bridge import snakemake_compatible
 
 def threat_processing_per_species(
     species_data_path: Path,
     aoh_path: Path,
     output_directory_path: Path,
+    sentinel_path: Path | None,
 ) -> None:
     try:
         data = gpd.read_file(species_data_path)
@@ -23,8 +25,16 @@ def threat_processing_per_species(
         os.makedirs(output_directory_path, exist_ok=True)
 
         taxon_id = data.id_no[0]
+
+        # Due to validation we generate AOHs for many more species than
+        # is needed for STAR, but we need to ensure those don't slip into
+        # the pipeline
+        if bool(data.in_star[0]) is not True:
+            sys.exit(f"Species {taxon_id} should not be in star!")
+
         category_weight = int(data.category_weight[0])
-        threat_data = json.loads(data.threats[0])
+        raw_threats = data.threats[0]
+        threat_data = json.loads(raw_threats) if isinstance(raw_threats, str) else raw_threats
 
         try:
             aoh_data_path = aoh_path.with_suffix(".json")
@@ -38,22 +48,29 @@ def threat_processing_per_species(
         weighted_species = proportional_aoh_per_pixel * category_weight
 
         total_threat_weight = sum(x[1] for x in threat_data)
-        print(threat_data)
-        print(total_threat_weight)
         for threat_id, weight in threat_data:
-            print(threat_id, weight)
             proportional_threat_weight = weight  / total_threat_weight
             per_threat_per_species_score = weighted_species * proportional_threat_weight
-            print(per_threat_per_species_score.sum())
 
             threat_dir_path = output_directory_path / str(threat_id)
             os.makedirs(threat_dir_path, exist_ok=True)
             output_path = threat_dir_path / f"{taxon_id}.tif"
             per_threat_per_species_score.to_geotiff(output_path)
 
-def main() -> None:
-    os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
+    # This script generates a bunch of rasters, but snakemake needs one
+    # output to say when this is done, so if we're in snakemake mode we touch a sentinel file to
+    # let it know we've done. One day this should be another decorator.
+    if sentinel_path is not None:
+        os.makedirs(sentinel_path.parent, exist_ok=True)
+        sentinel_path.touch()
 
+@snakemake_compatible(mapping={
+    "species_data_path": "input.species_data",
+    "aoh_path": "input.aoh",
+    "output_directory_path": "params.output_dir",
+    "sentinel_path": "output.sentinel",
+})
+def main() -> None:
     parser = argparse.ArgumentParser(description="Calculate per species threat layers")
     parser.add_argument(
         '--speciesdata',
@@ -76,12 +93,21 @@ def main() -> None:
         required=True,
         dest='output_directory_path',
     )
+    parser.add_argument(
+        '--sentinel',
+        type=Path,
+        help='Generate a sentinel file on completion for snakemake to track',
+        required=False,
+        default=None,
+        dest='sentinel_path',
+    )
     args = parser.parse_args()
 
     threat_processing_per_species(
         args.species_data_path,
         args.aoh_path,
         args.output_directory_path,
+        args.sentinel_path,
     )
 
 if __name__ == "__main__":
