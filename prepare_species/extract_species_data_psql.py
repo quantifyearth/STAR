@@ -1,9 +1,9 @@
 
 import argparse
-import json
 import logging
 import math
 import os
+import sys
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -14,6 +14,7 @@ import pandas as pd
 import psycopg2
 import shapely
 from postgis.psycopg import register
+from snakemake_argparse_bridge import snakemake_compatible
 
 from common import (
     CATEGORY_WEIGHTS,
@@ -193,7 +194,11 @@ def process_row(
         category_weight = 0
 
     # This is a fix as per the method to include the missing islands layer:
-    habitats_list = list(habitats) + ["islands"]
+    habitats_list = sorted(list(habitats)) + ["islands"]
+
+    # GeoPandas will do the right thing JSON wise if we convert the
+    # threats from a list of tuples to a list of lists:
+    json_ready_threats = [[code, score] for (code, score) in threats]
 
     gdf = gpd.GeoDataFrame(
         [[
@@ -208,7 +213,7 @@ def process_row(
             scientific_name,
             family_name,
             class_name,
-            json.dumps(threats),
+            json_ready_threats,
             category,
             category_weight,
             geometry,
@@ -289,11 +294,14 @@ def extract_data_per_species(
             results = apply_overrides(overrides_path, results)
 
         # The limiting amount here is how many concurrent connections the database can take
-        with Pool(processes=20) as pool:
-            reports = pool.map(
-                partial(process_row, class_name, era_output_directory_path, target_projection, presence),
-                results
-            )
+        try:
+            with Pool(processes=20) as pool:
+                reports = pool.map(
+                    partial(process_row, class_name, era_output_directory_path, target_projection, presence),
+                    results
+                )
+        except psycopg2.OperationalError:
+            sys.exit("Database connection failed for some rows, aborting")
 
         reports_df = pd.DataFrame(
             [x.as_row() for x in reports],
@@ -302,6 +310,13 @@ def extract_data_per_species(
         os.makedirs(era_output_directory_path, exist_ok=True)
         reports_df.to_csv(era_output_directory_path / "report.csv", index=False)
 
+@snakemake_compatible(mapping={
+    "classname": "params.classname",
+    "overrides": "params.overrides",
+    "excludes": "input.excludes",
+    "output_directory_path": "params.output_dir",
+    "target_projection": "params.projection",
+})
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process agregate species data to per-species-file.")
     parser.add_argument(
@@ -316,6 +331,7 @@ def main() -> None:
         type=Path,
         help="CSV of overrides",
         required=False,
+        default=None,
         dest="overrides",
     )
     parser.add_argument(
@@ -323,6 +339,7 @@ def main() -> None:
         type=Path,
         help="CSV of taxon IDs to not include",
         required=False,
+        default=None,
         dest="excludes"
     )
     parser.add_argument(

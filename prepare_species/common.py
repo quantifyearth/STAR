@@ -161,9 +161,9 @@ def process_systems(
     return systems
 
 def process_threats(
-    threat_data: list[tuple[int, str, str]],
+    threat_data: list[tuple[str, str, str]],
     report: SpeciesReport,
-) -> list[tuple[int, int]]:
+) -> list[tuple[str, int]]:
     cleaned_threats = []
     for code, scope, severity in threat_data:
         if scope is None or scope.lower() == "unknown":

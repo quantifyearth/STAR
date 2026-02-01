@@ -1,23 +1,17 @@
+# Build stage for reclaimer (used to download from Zenodo)
 FROM golang:latest AS reclaimerbuild
 RUN git clone https://github.com/quantifyearth/reclaimer.git
 WORKDIR /go/reclaimer
 RUN go mod tidy
 RUN go build
 
-FROM golang:latest AS littlejohnbuild
-RUN git clone https://github.com/quantifyearth/littlejohn.git
-WORKDIR /go/littlejohn
-RUN go mod tidy
-RUN go build
-
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.4
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
 
 RUN apt-get update -qqy && \
 	apt-get install -qy \
 		git \
 		cmake \
 		python3-pip \
-		shellcheck \
 		r-base \
 		libpq-dev \
 		libtirpc-dev \
@@ -25,13 +19,15 @@ RUN apt-get update -qqy && \
 	&& rm -rf /var/cache/apt/*
 
 COPY --from=reclaimerbuild /go/reclaimer/reclaimer /bin/reclaimer
-COPY --from=littlejohnbuild /go/littlejohn/littlejohn /bin/littlejohn
 
 RUN rm /usr/lib/python3.*/EXTERNALLY-MANAGED
-RUN pip install gdal[numpy]==3.11.4
+RUN pip install gdal[numpy]==3.12.1
 
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
+
+# Snakemake linting/formatting tools
+RUN pip install snakefmt
 
 RUN mkdir /root/R
 ENV R_LIBS_USER=/root/R
@@ -39,7 +35,6 @@ RUN Rscript -e 'install.packages(c("lme4","lmerTest","emmeans"), repos="https://
 
 COPY ./ /root/star
 WORKDIR /root/star
-RUN chmod 755 ./scripts/run.sh
 
 # We create a DATADIR - this should be mapped at container creation
 # time to a volume somewhere else
@@ -53,6 +48,19 @@ ENV VIRTUAL_ENV=/usr
 ENV PYTHONPATH=/root/star
 
 RUN python3 -m pytest ./tests
-RUN python3 -m pylint prepare_layers prepare_species utils tests
-RUN python3 -m mypy prepare_layers prepare_species utils tests
-RUN shellcheck ./scripts/run.sh
+RUN python3 -m pylint prepare_layers prepare_species threats utils tests
+RUN python3 -m mypy prepare_layers prepare_species threats utils tests
+
+# Snakemake validation
+RUN snakefmt --check workflow/
+# RUN snakemake --snakefile workflow/Snakefile --lint
+
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Default command runs the full Snakemake pipeline
+# Use --cores to specify parallelism, e.g.: docker run ... --cores 8
+# Logs are written to $DATADIR/logs/ and .snakemake/ metadata is stored in $DATADIR/
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["--cores", "4", "all"]

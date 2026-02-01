@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from snakemake_argparse_bridge import snakemake_compatible
 
 # Take from https://www.iucnredlist.org/resources/habitat-classification-scheme
 IUCN_HABITAT_CODES = {
@@ -57,6 +58,10 @@ def convert_crosswalk(
     df = pd.DataFrame(res, columns=["code", "value"])
     df.to_csv(output_path, index=False)
 
+@snakemake_compatible(mapping={
+    "original_path": "input.original",
+    "output_path": "output.crosswalk",
+})
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convert IUCN crosswalk to minimal common format.")
     parser.add_argument(
