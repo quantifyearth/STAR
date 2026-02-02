@@ -135,33 +135,3 @@ rule copy_islands_layer:
         """
         cp {input.islands} {output.lcc_0} 2>&1 | tee {log}
         """
-
-
-# =============================================================================
-# Helper rule to get specific habitat layer
-# =============================================================================
-
-
-def get_habitat_layer(wildcards):
-    """
-    Returns the path to a specific habitat layer.
-    lcc_0 is special (islands layer), others come from habitat processing.
-    """
-    n = int(wildcards.n)
-    if n == 0:
-        return DATADIR / "habitat_layers" / SCENARIO / "lcc_0.tif"
-    else:
-        return DATADIR / "habitat_layers" / SCENARIO / f"lcc_{n}.tif"
-
-
-rule habitat_layer:
-    """
-    Pseudo-rule to request a specific habitat layer.
-    This triggers either the habitat processing or islands copy as needed.
-    """
-    input:
-        layer=get_habitat_layer,
-    output:
-        # This is a bit of a trick - we declare the output but let the
-        # upstream rules actually create it
-        touch(DATADIR / "habitat_layers" / SCENARIO / ".lcc_{n}_exists"),

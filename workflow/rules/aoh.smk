@@ -58,6 +58,7 @@ def aoh_species_inputs(wildcards):
         "habitat_sentinel": ancient(
             DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete"
         ),
+        "lcc_0": DATADIR / "habitat_layers" / SCENARIO / "lcc_0.tif",
         "crosswalk": DATADIR / "crosswalk.csv",
         "mask": ancient(DATADIR / "masks" / "CGLS100Inland_withGADMIslands.tif"),
         "elevation_max": ancient(DATADIR / config["inputs"]["zenodo_elevation_max"]),
