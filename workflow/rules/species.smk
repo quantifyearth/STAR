@@ -35,6 +35,7 @@ checkpoint extract_species_data:
         # Serialise DB access scripts - only one extraction script at a time
         # as it will make many concurrent connections internally
         db_connections=1,
+    threads: workflow.cores
     script:
         str(SRCDIR / "prepare_species" / "extract_species_data_psql.py")
 
