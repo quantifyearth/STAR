@@ -215,7 +215,7 @@ def main() -> None:
     threat_summation(
         args.rasters_directory,
         args.output_directory,
-        args.processes_count
+        args.processes_count,
     )
 
 if __name__ == "__main__":
