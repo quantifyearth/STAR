@@ -96,7 +96,8 @@ rule validate_gbif_occurrences:
         gbif_data=lambda wildcards: DATADIR
         / "validation"
         / "occurrences"
-        / wildcards.taxa,
+        / wildcards.taxa
+        / "points.csv",
         species_data=lambda wildcards: DATADIR
         / "species-info"
         / wildcards.taxa
@@ -106,7 +107,7 @@ rule validate_gbif_occurrences:
         DATADIR / "logs" / "validate_gbif_{taxa}.log",
     shell:
         """
-        aoh-validate-occurrences \
+        aoh-validate-occurences \
             --gbif_data_path {params.gbif_data} \
             --species_data {params.species_data} \
             --aoh_results {params.aoh_results} \
