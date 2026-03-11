@@ -53,7 +53,7 @@ def aoh_species_inputs(wildcards):
         / "species-info"
         / wildcards.taxa
         / SCENARIO
-        / f"{wildcards.species_id}.geojson",
+        / f"range_{wildcards.species_id}.geojson",
         # Base layers (precious - won't trigger rebuilds)
         "habitat_sentinel": ancient(
             DATADIR / "habitat_layers" / SCENARIO / ".habitat_complete"
@@ -88,11 +88,11 @@ rule generate_aoh:
         unpack(aoh_species_inputs),
     output:
         # Only declare JSON as output - TIF is optional (not created for empty AOHs)
-        metadata=DATADIR / "aohs" / SCENARIO / "{taxa}" / "{species_id}_all.json",
+        metadata=DATADIR / "aohs" / SCENARIO / "{taxa}" / "aoh_{species_id}.json",
     params:
         habitat_dir=DATADIR / "habitat_layers" / SCENARIO,
     log:
-        DATADIR / "logs" / "aoh" / "{taxa}" / "{species_id}_all.log",
+        DATADIR / "logs" / "aoh" / "{taxa}" / "{species_id}.log",
     resources:
         # Limit concurrent AOH jobs if needed (e.g., for memory)
         aoh_slots=1,
@@ -126,7 +126,7 @@ def get_species_ids_for_taxa(wildcards):
         taxa=wildcards.taxa
     ).output[0]
     geojson_dir = Path(checkpoint_output).parent
-    return [p.stem for p in geojson_dir.glob("*.geojson")]
+    return [p.stem[6:] for p in geojson_dir.glob("range_*.geojson")]
 
 
 def get_all_aoh_metadata_for_taxa(wildcards):
@@ -135,7 +135,7 @@ def get_all_aoh_metadata_for_taxa(wildcards):
     """
     species_ids = get_species_ids_for_taxa(wildcards)
     return [
-        DATADIR / "aohs" / SCENARIO / wildcards.taxa / f"{sid}_all.json"
+        DATADIR / "aohs" / SCENARIO / wildcards.taxa / f"aoh_{sid}.json"
         for sid in species_ids
     ]
 

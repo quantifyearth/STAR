@@ -39,9 +39,9 @@ def get_star_species_for_taxa(wildcards):
 
     star_species = []
     for geojson_path in geojson_dir.glob("*.geojson"):
-        species_id = geojson_path.stem
+        species_id = geojson_path.stem[6:]
         aoh_path = (
-            DATADIR / "aohs" / SCENARIO / wildcards.taxa / f"{species_id}_all.tif"
+            DATADIR / "aohs" / SCENARIO / wildcards.taxa / f"aoh_{species_id}.tif"
         )
 
         # Check if species should be in STAR and has an AOH
@@ -88,8 +88,8 @@ rule generate_threat_rasters:
         / "species-info"
         / "{taxa}"
         / SCENARIO
-        / "{species_id}.geojson",
-        aoh=DATADIR / "aohs" / SCENARIO / "{taxa}" / "{species_id}_all.tif",
+        / "range_{species_id}.geojson",
+        aoh=DATADIR / "aohs" / SCENARIO / "{taxa}" / "aoh_{species_id}.tif",
     output:
         # Sentinel file since actual outputs depend on species' threats
         sentinel=DATADIR / "threat_rasters" / "{taxa}" / ".{species_id}_complete",
