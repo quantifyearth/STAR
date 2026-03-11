@@ -182,6 +182,9 @@ def process_species(
         assessment_year = assessment_dict['assessment_date'].year
         category = assessment_dict['red_list_category']
         family_name = assessment_dict['family_name']
+        order_name = assessment_dict['order_name']
+        phylum_name = assessment_dict['phylum_name']
+        kingdom_name = assessment_dict['kingdom_name']
         possibly_extinct = assessment_dict['possibly_extinct']
         possibly_extinct_in_the_wild = assessment_dict['possibly_extinct_in_the_wild']
         infrarank = assessment_dict['infrarank']
@@ -261,7 +264,10 @@ def process_species(
             '|'.join(habitats_list),
             scientific_name,
             family_name,
+            order_name,
             class_name,
+            phylum_name,
+            kingdom_name,
             json_ready_threats,
             category,
             CATEGORY_WEIGHTS[category],
