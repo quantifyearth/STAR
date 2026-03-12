@@ -24,7 +24,10 @@ COLUMNS = [
     "full_habitat_code",
     "scientific_name",
     "family_name",
+    "order_name",
     "class_name",
+    "phylum_name",
+    "kingdom_name",
     "threats",
     "category",
     "category_weight",
@@ -225,7 +228,7 @@ def tidy_reproject_save(
         elevation_seperation=ELEVATION_SPREAD,
     )
     os.makedirs(output_directory_path, exist_ok=True)
-    output_path = output_directory_path / f"{grow.id_no}.geojson"
+    output_path = output_directory_path / f"range_T{grow.id_no}A{grow.assessment_id}_{grow.season}.geojson"
     res = gpd.GeoDataFrame(grow.to_frame().transpose(), crs=src_crs, geometry="geometry")
 
     # Ensure proper dtypes for JSON serialization

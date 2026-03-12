@@ -25,6 +25,7 @@ def threat_processing_per_species(
         os.makedirs(output_directory_path, exist_ok=True)
 
         taxon_id = data.id_no[0]
+        assessment_id = data.assessment_id[0]
 
         # Due to validation we generate AOHs for many more species than
         # is needed for STAR, but we need to ensure those don't slip into
@@ -54,7 +55,7 @@ def threat_processing_per_species(
 
             threat_dir_path = output_directory_path / str(threat_id)
             os.makedirs(threat_dir_path, exist_ok=True)
-            output_path = threat_dir_path / f"{taxon_id}.tif"
+            output_path = threat_dir_path / f"threat_T{taxon_id}A{assessment_id}.tif"
             per_threat_per_species_score.to_geotiff(output_path)
 
     # This script generates a bunch of rasters, but snakemake needs one

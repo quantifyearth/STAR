@@ -46,6 +46,9 @@ SELECT
     (assessment_supplementary_infos.supplementary_fields->>'ElevationUpper.limit')::numeric AS elevation_upper,
     taxons.scientific_name,
     taxons.family_name,
+    taxons.order_name,
+    taxons.phylum_name,
+    taxons.kingdom_name,
     red_list_category_lookup.code
 FROM
     assessments
@@ -133,7 +136,8 @@ def process_row(
     cursor = connection.cursor()
 
     id_no, assessment_id, assessment_year, possibly_extinct, possibly_extinct_in_the_wild, \
-        elevation_lower, elevation_upper, scientific_name, family_name, category = row
+        elevation_lower, elevation_upper, scientific_name, family_name, \
+        order_name, phylum_name, kingom_name, category = row
 
     report = SpeciesReport(id_no, assessment_id, scientific_name)
     report.has_api_data = True
@@ -212,7 +216,10 @@ def process_row(
             '|'.join(habitats_list),
             scientific_name,
             family_name,
+            order_name,
             class_name,
+            phylum_name,
+            kingom_name,
             json_ready_threats,
             category,
             category_weight,
