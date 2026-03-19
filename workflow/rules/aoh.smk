@@ -31,7 +31,10 @@ rule aoh_version_sentinel:
         # Get aoh package version
         try:
             result = subprocess.run(
-                ["aoh-calc", "--version"], capture_output=True, text=True, check=True
+                ["aoh-calc", "--version"],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             aoh_version = result.stdout.strip()
         except Exception:
